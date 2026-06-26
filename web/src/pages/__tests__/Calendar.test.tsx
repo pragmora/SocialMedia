@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useLocation } from 'react-router-dom'
 import { renderWithRouter } from '@/test/render'
@@ -25,6 +25,18 @@ import {
 function LocationProbe() {
   const location = useLocation()
   return <div data-testid="location-pathname">{location.pathname}</div>
+}
+
+async function waitForCalendarLoaded() {
+  await waitFor(() => {
+    expect(screen.queryAllByTestId('skeleton-cell')).toHaveLength(0)
+  })
+}
+
+function hasActWarning(calls: unknown[][]) {
+  return calls.some((call) =>
+    call.some((arg) => typeof arg === 'string' && arg.includes('not wrapped in act')),
+  )
 }
 
 // ── Phase 1: RED Tests — Helpers ──────────────────────────────────
@@ -146,15 +158,15 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
     expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
   })
 
-  it('displays error message when API returns an error', async () => {
-    mockGet.mockResolvedValue({
-      error: { code: 'server_error', message: 'Failed to load calendar' },
-    })
+	it('displays error message when API returns an error', async () => {
+	  mockGet.mockResolvedValue({
+	    error: { code: 'server_error', message: 'No se pudo cargar el calendario' },
+	  })
 
     renderWithRouter(<Calendar />)
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to load calendar')).toBeInTheDocument()
+      expect(screen.getByText('No se pudo cargar el calendario')).toBeInTheDocument()
     })
   })
 
@@ -181,12 +193,10 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
     renderWithRouter(<Calendar />)
 
     // Wait for loading to finish
-    await waitFor(() => {
-      expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
-    })
+    await waitForCalendarLoaded()
 
     // Day-of-week headers must be visible
-    for (const day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) {
+    for (const day of ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']) {
       expect(screen.getByText(day)).toBeInTheDocument()
     }
   })
@@ -198,13 +208,11 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
 
     renderWithRouter(<Calendar />)
 
-    await waitFor(() => {
-      expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
-    })
+    await waitForCalendarLoaded()
 
     // Navigation buttons exist
-    expect(screen.getByText('← Prev')).toBeInTheDocument()
-    expect(screen.getByText('Next →')).toBeInTheDocument()
+    expect(screen.getByText('← Ant')).toBeInTheDocument()
+    expect(screen.getByText('Sig →')).toBeInTheDocument()
 
     // Month-year header renders (e.g., "May 2026")
     const header = screen.getByText(/\d{4}/) // any year
@@ -232,9 +240,7 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
 
     renderWithRouter(<Calendar />)
 
-    await waitFor(() => {
-      expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
-    })
+    await waitForCalendarLoaded()
 
     // Day 1 must be visible in the grid (any month has a day 1)
     const dayCells = screen.getAllByText('1')
@@ -299,7 +305,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    expect(screen.getByRole('button', { name: /today/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /hoy/i })).toBeInTheDocument()
   })
 
   it('clicking "Today" updates URL to current month', async () => {
@@ -323,7 +329,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
       data: { items: [], counts_by_day: {} },
     })
 
-    await user.click(screen.getByRole('button', { name: /today/i }))
+    await user.click(screen.getByRole('button', { name: /hoy/i }))
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledTimes(1)
@@ -351,7 +357,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
       data: { items: [], counts_by_day: {} },
     })
 
-    await user.click(screen.getByText('← Prev'))
+    await user.click(screen.getByText('← Ant'))
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledTimes(1)
@@ -378,7 +384,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
       data: { items: [], counts_by_day: {} },
     })
 
-    await user.click(screen.getByText('← Prev'))
+    await user.click(screen.getByText('← Ant'))
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledTimes(1)
@@ -405,7 +411,7 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    for (const status of ['All', 'Draft', 'Review', 'Approved', 'Published', 'Archived']) {
+    for (const status of ['Todos', 'Borrador', 'Revisión', 'Aprobado', 'Publicado', 'Archivado']) {
       expect(screen.getByText(status)).toBeInTheDocument()
     }
   })
@@ -427,7 +433,7 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
       data: { items: [], counts_by_day: {} },
     })
 
-    await user.click(screen.getByText('Review'))
+    await user.click(screen.getByText('Revisión'))
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledTimes(1)
@@ -455,7 +461,7 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Review' }))
+    await user.click(screen.getByRole('button', { name: 'Revisión' }))
 
     expect(screen.getByTestId('location-pathname')).toHaveTextContent('/dashboard/calendar')
   })
@@ -477,7 +483,7 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
       data: { items: [], counts_by_day: {} },
     })
 
-    await user.click(screen.getByText('All'))
+    await user.click(screen.getByText('Todos'))
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledTimes(1)
@@ -590,7 +596,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    expect(screen.getByText(/Select a day/)).toBeInTheDocument()
+    expect(screen.getByText(/Seleccioná un día/)).toBeInTheDocument()
   })
 
   it('shows items in sidebar when a date with content is clicked', async () => {
@@ -637,10 +643,10 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
     })
 
     expect(screen.getByText('Instagram Reel')).toBeInTheDocument()
-    expect(screen.getByText('approved')).toBeInTheDocument()
-    expect(screen.getByText('draft')).toBeInTheDocument()
-    expect(screen.getByText('facebook')).toBeInTheDocument()
-    expect(screen.getByText('instagram')).toBeInTheDocument()
+    expect(screen.getAllByText('Aprobado').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Borrador').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Facebook').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Instagram').length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows "No content scheduled for this day." for empty date', async () => {
@@ -673,7 +679,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
     await user.click(screen.getByText('20'))
 
     await waitFor(() => {
-      expect(screen.getByText('No content scheduled for this day.')).toBeInTheDocument()
+      expect(screen.getByText('Sin contenido programado para este día.')).toBeInTheDocument()
     })
   })
 
@@ -716,7 +722,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
       data: { items: [], counts_by_day: {} },
     })
 
-    await user.click(screen.getByText('← Prev'))
+    await user.click(screen.getByText('← Ant'))
 
     await waitFor(() => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
@@ -766,7 +772,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
       data: { items: [], counts_by_day: {} },
     })
 
-    await user.click(screen.getByText('← Prev'))
+    await user.click(screen.getByText('← Ant'))
 
     await waitFor(() => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
@@ -793,7 +799,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
       },
     })
 
-    await user.click(screen.getByText('Next →'))
+    await user.click(screen.getByText('Sig →'))
 
     await waitFor(() => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
@@ -834,23 +840,23 @@ describe('Calendar — loading, empty, and error states (task 3.5)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    expect(screen.getByText(/No content scheduled this month/)).toBeInTheDocument()
+    expect(screen.getByText(/Sin contenido programado este mes/)).toBeInTheDocument()
   })
 
   it('renders error banner correctly with red styling', async () => {
     mockGet.mockResolvedValue({
-      error: { code: 'server_error', message: 'Failed to load calendar' },
+      error: { code: 'server_error', message: 'No se pudo cargar el calendario' },
     })
 
     renderWithRouter(<Calendar />)
 
     await waitFor(() => {
-      expect(screen.getByText('Failed to load calendar')).toBeInTheDocument()
+      expect(screen.getByText('No se pudo cargar el calendario')).toBeInTheDocument()
     })
 
     // Error banner should be a semantic alert
     const errorContainer = screen.getByRole('alert')
-    expect(errorContainer).toHaveTextContent('Failed to load calendar')
+    expect(errorContainer).toHaveTextContent('No se pudo cargar el calendario')
   })
 
   it('shows filtered-zero-results message distinct from empty month', async () => {
@@ -880,7 +886,7 @@ describe('Calendar — loading, empty, and error states (task 3.5)', () => {
     })
 
     // Should indicate filtering is the cause (items exist but not in current view)
-    expect(screen.getByText(/no content.*match|No content in this month/i)).toBeInTheDocument()
+    expect(screen.getByText(/Ningún contenido.*filtros activos/i)).toBeInTheDocument()
   })
 })
 
@@ -922,7 +928,7 @@ describe('Calendar — URL params survive refresh (task 3.6)', () => {
     })
 
     // Active filter badges should be visible (multiple elements: tab + badge)
-    const publishedElements = screen.getAllByText(/published/i)
+    const publishedElements = screen.getAllByText(/Publicado/i)
     expect(publishedElements.length).toBeGreaterThanOrEqual(2) // at least tab + badge
 
     const instagramElements = screen.getAllByText(/instagram/i)
@@ -957,7 +963,7 @@ describe('Calendar — URL params survive refresh (task 3.6)', () => {
     })
 
     // Sidebar always visible with prompt
-    expect(screen.getByText(/Select a day/)).toBeInTheDocument()
+    expect(screen.getByText(/Seleccioná un día/)).toBeInTheDocument()
 
     await user.click(screen.getByText('15'))
 
@@ -992,7 +998,7 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
   }
 
   // S1.1 — Shows buttons for draft item
-  it('renders "Review" transition button for a draft sidebar item', async () => {
+  it("renders 'Revisión' transition button for a draft sidebar item", async () => {
     mockGet.mockResolvedValue({
       data: mockMonthData([
         { id: 'ci-1', title: 'Draft Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
@@ -1007,8 +1013,8 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    // S1.1: sidebar shows a "Review" button for the draft item
-    expect(screen.getByRole('button', { name: 'Move to Review' })).toBeInTheDocument()
+    // S1.1: sidebar shows a 'Revisión' button for the draft item
+    expect(screen.getByRole('button', { name: 'Mover a Revisión' })).toBeInTheDocument()
   })
 
   // S1.2 — No buttons for terminal item
@@ -1028,7 +1034,7 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
     })
 
     // S1.2: no transition buttons for archived
-    expect(screen.queryByRole('button', { name: /Move to/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Mover a/ })).not.toBeInTheDocument()
   })
 
   // S2.1 — Optimistic success
@@ -1053,15 +1059,15 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    // Verify initial status badge shows "draft"
-    expect(screen.getByText('draft')).toBeInTheDocument()
+    // Verify initial status badge shows "Borrador"
+    expect(screen.getAllByText('Borrador').length).toBeGreaterThanOrEqual(1)
 
-    // Click "Move to Review"
-    await user.click(screen.getByRole('button', { name: 'Move to Review' }))
+    // Click "Mover a Revisión"
+    await user.click(screen.getByRole('button', { name: 'Mover a Revisión' }))
 
-    // Optimistic: status should immediately show "review"
+    // Optimistic: status should immediately show "Revisión"
     await waitFor(() => {
-      expect(screen.getByText('review')).toBeInTheDocument()
+      expect(screen.getAllByText('Revisión').length).toBeGreaterThanOrEqual(1)
     })
 
     // PATCH called with correct payload
@@ -1103,9 +1109,9 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       error: { code: 'server_error', message: 'Transition failed' },
     })
 
-    // Click "Move to Review" — which won't exist yet, but the test structure is ready
+    // Click "Mover a Revisión"
     // RED phase: this test will fail because the button doesn't exist
-    await user.click(screen.getByRole('button', { name: 'Move to Review' }))
+    await user.click(screen.getByRole('button', { name: 'Mover a Revisión' }))
 
     await waitFor(() => {
       // On failure, loadMonth should be called (a second GET to the calendar endpoint)
@@ -1131,6 +1137,7 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
         { id: 'ci-1', title: 'Disable Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
       ]),
     })
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const user = userEvent.setup()
     renderWithRouter(<Calendar />, {
@@ -1142,17 +1149,28 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
     })
 
     // Click transition button — optimistically changes to "review" status
-    await user.click(screen.getByRole('button', { name: 'Move to Review' }))
+    await user.click(screen.getByRole('button', { name: 'Mover a Revisión' }))
 
     // After optimistic update, the item is now "review" status, so buttons change
-    // to "Move to Draft" and "Move to Approved" — but they should be disabled
-    const draftBtn = screen.getByRole('button', { name: 'Move to Draft' })
-    const approvedBtn = screen.getByRole('button', { name: 'Move to Approved' })
+    // to "Mover a Borrador" and "Mover a Aprobado" — but they should be disabled
+    const draftBtn = screen.getByRole('button', { name: 'Mover a Borrador' })
+    const approvedBtn = screen.getByRole('button', { name: 'Mover a Aprobado' })
     expect(draftBtn).toBeDisabled()
     expect(approvedBtn).toBeDisabled()
 
     // Resolve the PATCH
-    resolvePatch!({ data: { status: 'review' } })
+    await act(async () => {
+      resolvePatch!({ data: { status: 'review' } })
+      await patchPromise
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Mover a Borrador' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Mover a Aprobado' })).toBeEnabled()
+    })
+    expect(hasActWarning(consoleErrorSpy.mock.calls)).toBe(false)
+
+    consoleErrorSpy.mockRestore()
   })
 
   // S4.1 — "Details & Comments" link
@@ -1172,7 +1190,7 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
     })
 
     // "Details & Comments" link must exist and point to content item detail
-    const detailsLink = screen.getByText(/Details & Comments/)
+    const detailsLink = screen.getByText(/Detalles y comentarios/)
     expect(detailsLink).toBeInTheDocument()
     expect(detailsLink.closest('a')).toHaveAttribute('href', '/dashboard/content-items/ci-1')
   })
@@ -1198,7 +1216,7 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    const reviewBtn = screen.getByRole('button', { name: 'Move to Review' })
+    const reviewBtn = screen.getByRole('button', { name: 'Mover a Revisión' })
 
     // Focus the button, then press Enter — keyboard-only interaction
     reviewBtn.focus()
@@ -1206,7 +1224,7 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
 
     // Optimistic status update should be visible after keyboard activation
     await waitFor(() => {
-      expect(screen.getByText('review')).toBeInTheDocument()
+      expect(screen.getAllByText('Revisión').length).toBeGreaterThanOrEqual(1)
     })
 
     // PATCH should have been called
@@ -1230,10 +1248,10 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    // Draft item → "Move to Review"
-    expect(screen.getByRole('button', { name: 'Move to Review' })).toBeInTheDocument()
-    // Published item → "Move to Archived"
-    expect(screen.getByRole('button', { name: 'Move to Archived' })).toBeInTheDocument()
+    // Draft item → "Mover a Revisión"
+    expect(screen.getByRole('button', { name: 'Mover a Revisión' })).toBeInTheDocument()
+    // Published item → "Mover a Archivado"
+    expect(screen.getByRole('button', { name: 'Mover a Archivado' })).toBeInTheDocument()
   })
 
   // Title should be a separate link (not wrapping the whole card)
@@ -1277,8 +1295,8 @@ describe('Calendar page — null-safe rendering (regression)', () => {
     })
 
     // Empty-month message or grid should render without error (proves no crash)
-    const emptyMsg = screen.queryByText('No content scheduled this month.')
-    const gridHeaders = screen.queryByText('Sun')
+    const emptyMsg = screen.queryByText('Sin contenido programado este mes.')
+    const gridHeaders = screen.queryByText('Dom')
     // Either empty-month or grid is acceptable — the key is no TypeError
     expect(emptyMsg || gridHeaders).toBeTruthy()
   })
@@ -1295,10 +1313,10 @@ describe('Calendar page — null-safe rendering (regression)', () => {
     })
 
     // Empty month should show the dashed-border message
-    expect(screen.getByText('No content scheduled this month.')).toBeInTheDocument()
+    expect(screen.getByText('Sin contenido programado este mes.')).toBeInTheDocument()
 
     // Sidebar is always visible with prompt
-    expect(screen.getByText(/Select a day/)).toBeInTheDocument()
+    expect(screen.getByText(/Seleccioná un día/)).toBeInTheDocument()
   })
 
   it('shows content count indicators when API returns populated items and counts', async () => {
@@ -1329,7 +1347,7 @@ describe('Calendar page — null-safe rendering (regression)', () => {
     })
 
     // Grid headers render
-    expect(screen.getByText('Sun')).toBeInTheDocument()
+    expect(screen.getByText('Dom')).toBeInTheDocument()
 
     // Because today's day cell has count:1, two "1" texts should exist:
     // one for the day number and one for the count badge inside the same cell

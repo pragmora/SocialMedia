@@ -1,30 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
+import { getStatusLabel, getPlatformLabel } from '@/lib/labels'
 import { STATUS_OPTIONS, PLATFORM_OPTIONS, buildCalendarQuery } from '@/lib/calendarHelpers'
 import { NEXT_STATUS } from '@/lib/statusTransitions'
 
-const STATUS_LABELS: Record<string, string> = {
-  all: 'All',
-  draft: 'Draft',
-  review: 'Review',
-  approved: 'Approved',
-  published: 'Published',
-  archived: 'Archived',
+const STATUS_COLORS: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-700',
+  review: 'bg-yellow-100 text-yellow-800',
+  approved: 'bg-blue-100 text-blue-800',
+  published: 'bg-green-100 text-green-800',
+  archived: 'bg-red-100 text-red-800',
 }
 
-const PLATFORM_LABELS: Record<string, string> = {
-  all: 'All platforms',
-  instagram: 'Instagram',
-  facebook: 'Facebook',
-  twitter: 'Twitter',
-  linkedin: 'LinkedIn',
-  tiktok: 'TikTok',
-  youtube: 'YouTube',
-  other: 'Other',
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────
 function getCurrentMonth(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -54,14 +43,6 @@ interface CalendarResult {
   counts_by_day: Record<string, number>
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  review: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-blue-100 text-blue-800',
-  published: 'bg-green-100 text-green-800',
-  archived: 'bg-red-100 text-red-800',
-}
-
 // ── Skeleton Grid ───────────────────────────────────────────────────
 function SkeletonGrid() {
   const cells = Array.from({ length: 42 }) // 6 rows × 7 columns
@@ -70,7 +51,7 @@ function SkeletonGrid() {
       <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
           <div key={d} className="px-2 py-2 text-center text-xs font-medium text-gray-500">
-            {d}
+            {d.slice(0, 3)}
           </div>
         ))}
       </div>
@@ -92,6 +73,7 @@ function SkeletonGrid() {
 
 // ── Main Component ───────────────────────────────────────────────────
 export default function Calendar() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [data, setData] = useState<CalendarResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -114,7 +96,9 @@ export default function Calendar() {
   const todayStr = today.toISOString().slice(0, 10)
   const currentMonthStr = getCurrentMonth()
 
-  const monthName = new Date(year, monthNum - 1).toLocaleString('default', { month: 'long' })
+  const monthName = new Date(year, monthNum - 1).toLocaleString('es', { month: 'long' })
+
+  const DAYS = [t('calendar.days.sun'), t('calendar.days.mon'), t('calendar.days.mar'), t('calendar.days.mi\u00E9'), t('calendar.days.jue'), t('calendar.days.vie'), t('calendar.days.s\u00E1b')]
 
   const loadMonth = useCallback(async () => {
     setLoading(true)
@@ -270,13 +254,13 @@ export default function Calendar() {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">Calendar</h2>
+        <h2 className="text-xl font-semibold text-gray-900">{t('calendar.title')}</h2>
         <div className="flex items-center gap-3">
           <button
             onClick={prevMonth}
             className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
           >
-            ← Prev
+            {t('calendar.prev')}
           </button>
           <span className="text-lg font-medium text-gray-900 min-w-[160px] text-center">
             {monthName} {year}
@@ -285,13 +269,13 @@ export default function Calendar() {
             onClick={nextMonth}
             className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
           >
-            Next →
+            {t('calendar.next')}
           </button>
           <button
             onClick={goToToday}
             className="rounded-lg border border-socialflow-300 px-3 py-1.5 text-sm font-medium text-socialflow-700 hover:bg-socialflow-50 transition-colors"
           >
-            Today
+            {t('calendar.today')}
           </button>
         </div>
       </div>
@@ -313,7 +297,7 @@ export default function Calendar() {
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {STATUS_LABELS[s]}
+              {s === 'all' ? t('status.all') : getStatusLabel(s)}
               </button>
             )
           })}
@@ -328,7 +312,7 @@ export default function Calendar() {
           >
             {PLATFORM_OPTIONS.map((p) => (
               <option key={p} value={p}>
-                {PLATFORM_LABELS[p]}
+                {p === 'all' ? t('platform.all') : getPlatformLabel(p)}
               </option>
             ))}
           </select>
@@ -338,15 +322,15 @@ export default function Calendar() {
       {/* Active filter badges */}
       {hasActiveFilters && (
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs text-gray-500">Active filters:</span>
+          <span className="text-xs text-gray-500">{t('calendar.activeFilters')}</span>
           {status && status !== 'all' && (
             <span className="inline-flex items-center gap-1 rounded-full bg-socialflow-100 px-2 py-0.5 text-xs font-medium text-socialflow-700">
-              {STATUS_LABELS[status]}
+              {getStatusLabel(status)}
             </span>
           )}
           {platform && platform !== 'all' && (
             <span className="inline-flex items-center gap-1 rounded-full bg-socialflow-100 px-2 py-0.5 text-xs font-medium text-socialflow-700">
-              {PLATFORM_LABELS[platform]}
+              {getPlatformLabel(platform)}
             </span>
           )}
         </div>
@@ -377,19 +361,19 @@ export default function Calendar() {
           {/* Calendar grid */}
           {isEmptyMonth ? (
             <div className="flex-1 bg-white rounded-lg border border-dashed border-gray-300 p-12 text-center">
-              <p className="text-gray-500">No content scheduled this month.</p>
+              <p className="text-gray-500">{t('calendar.noContentMonth')}</p>
             </div>
           ) : isFilteredEmpty ? (
             <div className="flex-1 bg-white rounded-lg border border-dashed border-gray-300 p-12 text-center">
               <p className="text-gray-500">
-                No content in this month matches the current filters.
+                {t('calendar.noContentFilters')}
               </p>
             </div>
           ) : (
             <div className="flex-1 bg-white rounded-lg border border-gray-200 overflow-hidden">
               {/* Day-of-week headers */}
               <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                {DAYS.map((d) => (
                   <div key={d} className="px-2 py-2 text-center text-xs font-medium text-gray-500">
                     {d}
                   </div>
@@ -452,7 +436,7 @@ export default function Calendar() {
                     {activeDay}
                   </h3>
                   {selectedItems.length === 0 ? (
-                    <p className="text-xs text-gray-400">No content scheduled for this day.</p>
+                    <p className="text-xs text-gray-400">{t('calendar.noContentDay')}</p>
                   ) : (
                     <div className="space-y-2">
                       {selectedItems.map((item) => {
@@ -474,41 +458,47 @@ export default function Calendar() {
                             {/* Status badge and platform */}
                             <div className="flex gap-2 mt-1">
                               <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[item.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                                {item.status}
+                                {getStatusLabel(item.status)}
                               </span>
-                              <span className="text-[10px] text-gray-400 capitalize">{item.platform}</span>
+                              <span className="text-[10px] text-gray-400">{getPlatformLabel(item.platform)}</span>
                             </div>
 
                             {/* Inline transition buttons */}
                             {allowedNext.length > 0 && !isPending && (
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {allowedNext.map((next) => (
-                                  <button
-                                    key={next}
-                                    onClick={() => handleSidebarTransition(item.id, next)}
-                                    disabled={isPending}
-                                    aria-label={`Move to ${next.charAt(0).toUpperCase() + next.slice(1)}`}
-                                    className="rounded px-2 py-0.5 text-[10px] font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-socialflow-300 focus-visible:ring-offset-1"
-                                  >
-                                    {next.charAt(0).toUpperCase() + next.slice(1)}
-                                  </button>
-                                ))}
+                                {allowedNext.map((next) => {
+                                  const nextLabel = getStatusLabel(next)
+                                  return (
+                                    <button
+                                      key={next}
+                                      onClick={() => handleSidebarTransition(item.id, next)}
+                                      disabled={isPending}
+                                      aria-label={t('calendar.ariaMoveTo', { status: nextLabel })}
+                                      className="rounded px-2 py-0.5 text-[10px] font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-socialflow-300 focus-visible:ring-offset-1"
+                                    >
+                                      {nextLabel}
+                                    </button>
+                                  )
+                                })}
                               </div>
                             )}
 
                             {/* Pending transition indicator */}
                             {isPending && (
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {allowedNext.map((next) => (
-                                  <button
-                                    key={next}
-                                    disabled
-                                    aria-label={`Move to ${next.charAt(0).toUpperCase() + next.slice(1)}`}
-                                    className="rounded px-2 py-0.5 text-[10px] font-medium border border-gray-200 text-gray-400 opacity-50 cursor-not-allowed"
-                                  >
-                                    {next.charAt(0).toUpperCase() + next.slice(1)}
-                                  </button>
-                                ))}
+                                {allowedNext.map((next) => {
+                                  const nextLabel = getStatusLabel(next)
+                                  return (
+                                    <button
+                                      key={next}
+                                      disabled
+                                      aria-label={t('calendar.ariaMoveTo', { status: nextLabel })}
+                                      className="rounded px-2 py-0.5 text-[10px] font-medium border border-gray-200 text-gray-400 opacity-50 cursor-not-allowed"
+                                    >
+                                      {nextLabel}
+                                    </button>
+                                  )
+                                })}
                               </div>
                             )}
 
@@ -517,7 +507,7 @@ export default function Calendar() {
                               to={`/dashboard/content-items/${item.id}`}
                               className="text-[10px] text-socialflow-600 hover:text-socialflow-700 mt-2 inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-socialflow-300 focus-visible:ring-offset-1 rounded"
                             >
-                              Details &amp; Comments →
+                              {t('calendar.detailsAndComments')}
                             </Link>
                           </div>
                         )
@@ -526,7 +516,7 @@ export default function Calendar() {
                   )}
                 </>
               ) : (
-                <p className="text-xs text-gray-400">Select a day to see scheduled content</p>
+              <p className="text-xs text-gray-400">{t('calendar.selectDay')}</p>
               )}
             </div>
           </div>

@@ -40,18 +40,18 @@ describe('TaskForm — fetching-state behavior preservation (lint hardening)', (
 
     // Heading must render immediately
     await waitFor(() => {
-      expect(screen.getByText('New Task')).toBeInTheDocument()
+      expect(screen.getByText('Nueva tarea')).toBeInTheDocument()
     })
 
     // Loading text must NOT appear in create mode
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
 
     // Form fields must be visible
-    expect(screen.getByLabelText('Title *')).toBeInTheDocument()
-    expect(screen.getByLabelText('Description')).toBeInTheDocument()
+    expect(screen.getByLabelText('Título *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Descripción')).toBeInTheDocument()
 
     // Create button label
-    expect(screen.getByRole('button', { name: 'Create Task' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Crear tarea' })).toBeInTheDocument()
   })
 
   it('in edit mode, fetching starts as true, shows Loading..., then pre-fills form fields', async () => {
@@ -72,29 +72,29 @@ describe('TaskForm — fetching-state behavior preservation (lint hardening)', (
     renderWithRouter(<TaskForm />)
 
     // Loading... must appear while fetching
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Cargando...')).toBeInTheDocument()
 
     // API call must fire with the correct endpoint
     expect(mockGet).toHaveBeenCalledWith('/tasks/task-789')
 
     // Wait for data and form to render
     await waitFor(() => {
-      expect(screen.getByText('Edit Task')).toBeInTheDocument()
+      expect(screen.getByText('Editar tarea')).toBeInTheDocument()
     })
 
     // Title field must be pre-filled
-    const titleInput = screen.getByLabelText('Title *') as HTMLInputElement
+    const titleInput = screen.getByLabelText('Título *') as HTMLInputElement
     expect(titleInput.value).toBe('Review Instagram draft')
 
     // Due date must be pre-filled
-    const dueInput = screen.getByLabelText('Due Date') as HTMLInputElement
+    const dueInput = screen.getByLabelText('Fecha límite') as HTMLInputElement
     expect(dueInput.value).toBe('2026-06-20')
 
     // Done checkbox must appear in edit mode
-    expect(screen.getByLabelText('Mark as done')).toBeInTheDocument()
+    expect(screen.getByLabelText('Marcar como completada')).toBeInTheDocument()
 
     // Loading must be gone
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
   })
 
   it('in create mode, done checkbox is NOT rendered', async () => {
@@ -103,24 +103,24 @@ describe('TaskForm — fetching-state behavior preservation (lint hardening)', (
     renderWithRouter(<TaskForm />)
 
     await waitFor(() => {
-      expect(screen.getByText('New Task')).toBeInTheDocument()
+      expect(screen.getByText('Nueva tarea')).toBeInTheDocument()
     })
 
     // Done checkbox should NOT exist in create mode
-    expect(screen.queryByLabelText('Mark as done')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Marcar como completada')).not.toBeInTheDocument()
   })
 
   it('in edit mode, shows error when API returns error', async () => {
     vi.mocked(useParams).mockReturnValue({ id: 'task-err' })
 
     mockGet.mockResolvedValue({
-      error: { code: 'not_found', message: 'Task not found' },
+      error: { code: 'not_found', message: 'tarea no encontrada' },
     })
 
     renderWithRouter(<TaskForm />)
 
     await waitFor(() => {
-      expect(screen.getByText('Task not found')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('tarea no encontrada')
     })
   })
 })

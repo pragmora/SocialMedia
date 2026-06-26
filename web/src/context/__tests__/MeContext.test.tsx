@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MeProvider, useMe } from '@/context/MeContext'
 
 // Mock apiClient module BEFORE any imports that use it transitively
@@ -80,6 +81,12 @@ function renderProvider() {
 }
 
 describe('MeContext', () => {
+  function hasActWarning(calls: unknown[][]) {
+    return calls.some((call) =>
+      call.some((arg) => typeof arg === 'string' && arg.includes('not wrapped in act')),
+    )
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -206,6 +213,8 @@ describe('MeContext', () => {
 
   it('login() updates user state immediately without API call', async () => {
     mockGet.mockResolvedValue({ data: null }) // initial refresh returns no user
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const user = userEvent.setup()
 
     renderProvider()
 
@@ -215,7 +224,7 @@ describe('MeContext', () => {
     })
 
     // Click login button to manually set user
-    screen.getByTestId('login-btn').click()
+    await user.click(screen.getByTestId('login-btn'))
 
     // Wait for React state update to propagate to DOM
     await waitFor(() => {
@@ -223,12 +232,17 @@ describe('MeContext', () => {
     })
     // login() clears error
     expect(screen.getByTestId('error')).toHaveTextContent('no-error')
+    expect(hasActWarning(consoleErrorSpy.mock.calls)).toBe(false)
+
+    consoleErrorSpy.mockRestore()
   })
 
   // ── reauthenticate() ──────────────────────────────────────────
 
   it('reauthenticate() resets debounce, fetches /me, sets user on success, returns true', async () => {
     mockGet.mockResolvedValue({ data: null }) // initial refresh: no user
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const user = userEvent.setup()
 
     renderProvider()
 
@@ -241,7 +255,7 @@ describe('MeContext', () => {
       data: { id: 'r1', email: 'reauth@test.com', active_workspace_id: 'ws2', role: 'editor' },
     })
 
-    screen.getByTestId('reauth-btn').click()
+    await user.click(screen.getByTestId('reauth-btn'))
 
     await waitFor(() => {
       // reauthenticate calls resetUnauthorizedDebounce BEFORE fetching /me
@@ -260,10 +274,15 @@ describe('MeContext', () => {
     // reauthenticate returns true
     expect(screen.getByTestId('reauth-result')).toHaveTextContent('true')
     expect(screen.getByTestId('error')).toHaveTextContent('no-error')
+    expect(hasActWarning(consoleErrorSpy.mock.calls)).toBe(false)
+
+    consoleErrorSpy.mockRestore()
   })
 
   it('reauthenticate() returns false when /me returns server error, user=null, error set', async () => {
     mockGet.mockResolvedValue({ data: null })
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const user = userEvent.setup()
 
     renderProvider()
 
@@ -276,7 +295,7 @@ describe('MeContext', () => {
       error: { code: 'server_error', message: 'Internal server error' },
     })
 
-    screen.getByTestId('reauth-btn').click()
+    await user.click(screen.getByTestId('reauth-btn'))
 
     // debounce is still reset
     await waitFor(() => {
@@ -292,6 +311,9 @@ describe('MeContext', () => {
     expect(screen.getByTestId('error')).toHaveTextContent('Internal server error')
     // reauthenticate returns false
     expect(screen.getByTestId('reauth-result')).toHaveTextContent('false')
+    expect(hasActWarning(consoleErrorSpy.mock.calls)).toBe(false)
+
+    consoleErrorSpy.mockRestore()
   })
 
   // ── reauthenticate() unauthorized branch (R1 scenario gap) ─────
@@ -301,6 +323,9 @@ describe('MeContext', () => {
     mockGet.mockResolvedValue({
       data: { id: '1', email: 'user@test.com', active_workspace_id: 'ws1', role: 'member' },
     })
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const user = userEvent.setup()
 
     renderProvider()
 
@@ -313,7 +338,7 @@ describe('MeContext', () => {
       error: { code: 'unauthorized', message: 'Not authenticated' },
     })
 
-    screen.getByTestId('reauth-btn').click()
+    await user.click(screen.getByTestId('reauth-btn'))
 
     // debounce reset is called before /me
     await waitFor(() => {
@@ -329,6 +354,9 @@ describe('MeContext', () => {
     expect(screen.getByTestId('error')).toHaveTextContent('no-error')
     // reauthenticate returns false
     expect(screen.getByTestId('reauth-result')).toHaveTextContent('false')
+    expect(hasActWarning(consoleErrorSpy.mock.calls)).toBe(false)
+
+    consoleErrorSpy.mockRestore()
   })
 
   // ── R5: Existing Behaviors Preserved ────────────────────────────

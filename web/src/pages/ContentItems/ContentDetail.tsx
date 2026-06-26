@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
+import { getContentTypeLabel, getPlatformLabel, getStatusLabel } from '@/lib/labels'
 import { NEXT_STATUS } from '@/lib/statusTransitions'
 
 interface ContentItem {
@@ -38,6 +40,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function ContentDetail() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const [item, setItem] = useState<ContentItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -104,15 +107,15 @@ export default function ContentDetail() {
   }
 
   if (loading) {
-    return <p className="text-gray-500 p-4">Loading...</p>
+    return <p className="text-gray-500 p-4">{t('app.loading')}</p>
   }
 
   if (!item) {
     return (
       <div className="p-4">
-        <p className="text-red-600">{error || 'Content item not found'}</p>
+        <p role="alert" className="text-red-600">{error || t('content.notFound')}</p>
         <Link to="/content-items" className="text-socialflow-600 hover:underline text-sm mt-2 inline-block">
-          ← Back to list
+          {t('content.backToList')}
         </Link>
       </div>
     )
@@ -125,12 +128,12 @@ export default function ContentDetail() {
       {/* Breadcrumb */}
       <div className="mb-4">
         <Link to="/dashboard/content-items" className="text-sm text-socialflow-600 hover:text-socialflow-700">
-          ← Content Items
+          {t('content.backToContentItems')}
         </Link>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
           {error}
         </div>
       )}
@@ -142,11 +145,13 @@ export default function ContentDetail() {
             <h1 className="text-2xl font-bold text-gray-900">{item.title}</h1>
             <div className="flex gap-2 mt-2">
               <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] ?? ''}`}>
-                {item.status}
+                {getStatusLabel(item.status)}
               </span>
-              <span className="text-xs text-gray-500 capitalize">{item.platform} · {item.content_type}</span>
+              <span className="text-xs text-gray-500">
+                {getPlatformLabel(item.platform)} · {getContentTypeLabel(item.content_type)}
+              </span>
               {item.scheduled_date && (
-                <span className="text-xs text-gray-500">Scheduled: {item.scheduled_date}</span>
+                <span className="text-xs text-gray-500">{t('content.scheduled')} {item.scheduled_date}</span>
               )}
             </div>
           </div>
@@ -154,7 +159,7 @@ export default function ContentDetail() {
             to={`/dashboard/content-items/${item.id}/edit`}
             className="text-sm text-socialflow-600 hover:text-socialflow-700 font-medium"
           >
-            Edit
+            {t('content.edit')}
           </Link>
         </div>
 
@@ -165,7 +170,7 @@ export default function ContentDetail() {
         {/* Status transitions */}
         {allowedTransitions.length > 0 && (
           <div className="mt-6 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-500 mb-2">Move to:</p>
+            <p className="text-xs text-gray-500 mb-2">{t('content.moveTo')}</p>
             <div className="flex gap-2">
               {allowedTransitions.map((next) => (
                 <button
@@ -174,7 +179,7 @@ export default function ContentDetail() {
                   disabled={transitioning}
                   className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
-                  {next.charAt(0).toUpperCase() + next.slice(1)}
+                  {getStatusLabel(next)}
                 </button>
               ))}
             </div>
@@ -185,7 +190,7 @@ export default function ContentDetail() {
       {/* Comments section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Comments ({item.comments?.length ?? 0})
+          {t('content.commentsCount', { count: item.comments?.length ?? 0 })}
         </h3>
 
         {/* Add comment form */}
@@ -193,7 +198,7 @@ export default function ContentDetail() {
           <textarea
             value={commentBody}
             onChange={(e) => setCommentBody(e.target.value)}
-            placeholder="Write a comment..."
+            placeholder={t('content.writeComment')}
             rows={2}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500"
           />
@@ -202,13 +207,13 @@ export default function ContentDetail() {
             disabled={submittingComment || !commentBody.trim()}
             className="mt-2 rounded-lg bg-socialflow-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-socialflow-700 transition-colors disabled:opacity-50"
           >
-            {submittingComment ? 'Posting...' : 'Add Comment'}
+            {submittingComment ? t('content.posting') : t('content.addComment')}
           </button>
         </form>
 
         {/* Comments list */}
         {(!item.comments || item.comments.length === 0) ? (
-          <p className="text-sm text-gray-400">No comments yet.</p>
+          <p className="text-sm text-gray-400">{t('content.noComments')}</p>
         ) : (
           <div className="space-y-3">
             {item.comments.map((c) => (
@@ -226,7 +231,7 @@ export default function ContentDetail() {
                     onClick={() => handleDeleteComment(c.id)}
                     className="text-xs text-red-500 hover:text-red-700 font-medium"
                   >
-                    Delete
+                      {t('content.delete')}
                   </button>
                 </div>
                 <p className="mt-1 text-sm text-gray-600">{c.body}</p>

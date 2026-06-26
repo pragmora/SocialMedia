@@ -41,7 +41,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
 
     renderWithRouter(<ContentDetail />)
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Cargando...')).toBeInTheDocument()
   })
 
   it('calls GET /content-items/:id on mount with the correct id from useParams', async () => {
@@ -96,7 +96,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     })
 
     // Breadcrumb link must have correct text and href
-    const breadcrumb = screen.getByText('← Content Items')
+    const breadcrumb = screen.getByText('← Elementos de contenido')
     expect(breadcrumb).toBeInTheDocument()
     expect(breadcrumb.closest('a')).toHaveAttribute('href', '/dashboard/content-items')
   })
@@ -126,7 +126,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Editable Post')).toBeInTheDocument()
     })
 
-    const editLink = screen.getByText('Edit')
+    const editLink = screen.getByText('Editar')
     expect(editLink).toBeInTheDocument()
     expect(editLink.closest('a')).toHaveAttribute('href', '/dashboard/content-items/item-001/edit')
   })
@@ -156,8 +156,8 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Draft Post')).toBeInTheDocument()
     })
 
-    // Draft → Review transition must be available
-    expect(screen.getByRole('button', { name: 'Review' })).toBeInTheDocument()
+    // Draft → Revisión transition must be available
+    expect(screen.getByRole('button', { name: 'Revisión' })).toBeInTheDocument()
   })
 
   it('renders status transition buttons for review status (draft + approved)', async () => {
@@ -185,9 +185,9 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Review Post')).toBeInTheDocument()
     })
 
-    // Review → Draft and Review → Approved transitions must be available
-    expect(screen.getByRole('button', { name: 'Draft' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Approved' })).toBeInTheDocument()
+    // Revisión → Borrador and Revisión → Aprobado transitions must be available
+    expect(screen.getByRole('button', { name: 'Borrador' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Aprobado' })).toBeInTheDocument()
   })
 
   it('renders status transition buttons for approved status (published only)', async () => {
@@ -215,8 +215,8 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Approved Post')).toBeInTheDocument()
     })
 
-    // Approved → Published transition must be available
-    expect(screen.getByRole('button', { name: 'Published' })).toBeInTheDocument()
+    // Aprobado → Publicado transition must be available
+    expect(screen.getByRole('button', { name: 'Publicado' })).toBeInTheDocument()
   })
 
   it('does NOT render transition buttons for archived (terminal) status', async () => {
@@ -245,27 +245,27 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     })
 
     // No transition buttons should be rendered for terminal status
-    expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Draft' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Approved' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Published' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Archived' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Move to:')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Revisión' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Borrador' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Aprobado' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Publicado' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Archivado' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Mover a:')).not.toBeInTheDocument()
   })
 
   it('shows error and back link when API returns an error', async () => {
     mockGet.mockResolvedValue({
-      error: { code: 'not_found', message: 'Content item not found' },
+      error: { code: 'not_found', message: 'elemento de contenido no encontrado' },
     })
 
     renderWithRouter(<ContentDetail />)
 
     await waitFor(() => {
-      expect(screen.getByText('Content item not found')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('elemento de contenido no encontrado')
     })
 
     // Back link must be present when item not found
-    const backLink = screen.getByText('← Back to list')
+    const backLink = screen.getByText('← Volver a la lista')
     expect(backLink).toBeInTheDocument()
     expect(backLink.closest('a')).toHaveAttribute('href', '/content-items')
   })
@@ -295,8 +295,8 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Published Post')).toBeInTheDocument()
     })
 
-    // Status badge shows 'published'
-    expect(screen.getByText('published')).toBeInTheDocument()
+    // Status badge shows 'Publicado'
+    expect(screen.getByText('Publicado')).toBeInTheDocument()
   })
 
   it('renders comments count in the header', async () => {
@@ -340,7 +340,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     })
 
     // Comments count must show 2
-    expect(screen.getByText('Comments (2)')).toBeInTheDocument()
+    expect(screen.getByText('Comentarios (2)')).toBeInTheDocument()
   })
 
   // ── RED Phase: Comments absent from initial payload ──────────
@@ -382,14 +382,14 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     })
 
     // Should show 0 comments (comments field absent → ?? 0)
-    expect(screen.getByText('Comments (0)')).toBeInTheDocument()
+    expect(screen.getByText('Comentarios (0)')).toBeInTheDocument()
 
     // Fill in comment form
-    const textarea = screen.getByPlaceholderText('Write a comment...')
+    const textarea = screen.getByPlaceholderText('Escribí un comentario...')
     fireEvent.change(textarea, { target: { value: 'My first comment' } })
 
     // Submit the form
-    const submitButton = screen.getByRole('button', { name: /add comment/i })
+    const submitButton = screen.getByRole('button', { name: /agregar comentario/i })
     fireEvent.click(submitButton)
 
     // Wait for the new comment to appear — proves no TypeError was thrown
@@ -398,7 +398,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     })
 
     // Comment count should update to 1
-    expect(screen.getByText('Comments (1)')).toBeInTheDocument()
+    expect(screen.getByText('Comentarios (1)')).toBeInTheDocument()
   })
 
   it('handleDeleteComment: deletes from initially populated comments array (isolated, no add-before-delete)', async () => {
@@ -453,11 +453,11 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     expect(screen.getByText('Second existing comment')).toBeInTheDocument()
 
     // Comment count must show 2
-    expect(screen.getByText('Comments (2)')).toBeInTheDocument()
+    expect(screen.getByText('Comentarios (2)')).toBeInTheDocument()
 
     // Click Delete on the first comment
     // There are 2 Delete buttons — target the first one (for cm-preexist-1)
-    const deleteButtons = screen.getAllByRole('button', { name: 'Delete' })
+    const deleteButtons = screen.getAllByRole('button', { name: 'Eliminar' })
     expect(deleteButtons).toHaveLength(2)
     fireEvent.click(deleteButtons[0])
 
@@ -471,7 +471,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     })
 
     expect(screen.getByText('Second existing comment')).toBeInTheDocument()
-    expect(screen.getByText('Comments (1)')).toBeInTheDocument()
+    expect(screen.getByText('Comentarios (1)')).toBeInTheDocument()
 
     // Verify apiClient.delete was called with the correct comment ID
     expect(mockDelete).toHaveBeenCalledWith('/comments/cm-preexist-1')
@@ -518,9 +518,9 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     })
 
     // First, add a comment so there's something to delete
-    const textarea = screen.getByPlaceholderText('Write a comment...')
+    const textarea = screen.getByPlaceholderText('Escribí un comentario...')
     fireEvent.change(textarea, { target: { value: 'Comment to delete' } })
-    fireEvent.click(screen.getByRole('button', { name: /add comment/i }))
+    fireEvent.click(screen.getByRole('button', { name: /agregar comentario/i }))
 
     // Wait for the comment to appear
     await waitFor(() => {
@@ -528,16 +528,16 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     })
 
     // Now delete it — clicking Delete button
-    const deleteButton = screen.getByRole('button', { name: 'Delete' })
+    const deleteButton = screen.getByRole('button', { name: 'Eliminar' })
     fireEvent.click(deleteButton)
 
     // After deletion, the comment should disappear (back to "No comments yet.")
     // The key assertion: no TypeError thrown, component still renders
     await waitFor(() => {
-      expect(screen.getByText('No comments yet.')).toBeInTheDocument()
+      expect(screen.getByText('Sin comentarios aún.')).toBeInTheDocument()
     })
 
     // Comment count back to 0
-    expect(screen.getByText('Comments (0)')).toBeInTheDocument()
+    expect(screen.getByText('Comentarios (0)')).toBeInTheDocument()
   })
 })

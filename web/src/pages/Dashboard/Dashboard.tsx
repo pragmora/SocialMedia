@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
+import { getStatusLabel } from '@/lib/labels'
 
 interface ContentItem {
   id: string
@@ -26,15 +28,8 @@ const STATUS_COLORS: Record<string, string> = {
   archived: 'bg-red-100 text-red-800',
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  review: 'In Review',
-  approved: 'Approved',
-  published: 'Published',
-  archived: 'Archived',
-}
-
 export default function Dashboard() {
+  const { t } = useTranslation()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -57,18 +52,18 @@ export default function Dashboard() {
   }, [loadDashboard])
 
   if (loading) {
-    return <p className="text-gray-500 p-4">Loading dashboard...</p>
+    return <p className="text-gray-500 p-4">{t('dashboard.loadingDashboard')}</p>
   }
 
   if (!data) {
     return (
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Dashboard</h2>
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center">
-          <p className="text-red-600">{error || 'Failed to load dashboard'}</p>
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('dashboard.title')}</h2>
+          <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center">
+          <p role="alert" className="text-red-600">{error || t('dashboard.failedToLoad')}</p>
+          </div>
         </div>
-      </div>
-    )
+      )
   }
 
   const totalContent = Object.values(data.status_counts).reduce((a, b) => a + b, 0)
@@ -76,17 +71,17 @@ export default function Dashboard() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">Dashboard</h2>
+        <h2 className="text-xl font-semibold text-gray-900">{t('dashboard.title')}</h2>
         <button
           onClick={loadDashboard}
           className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >
-          Refresh
+          {t('dashboard.refresh')}
         </button>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
           {error}
         </div>
       )}
@@ -100,7 +95,7 @@ export default function Dashboard() {
           >
             <div className="flex items-center justify-between mb-2">
               <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700'}`}>
-                {STATUS_LABELS[status] ?? status}
+                {getStatusLabel(status)}
               </span>
             </div>
             <p className="text-2xl font-bold text-gray-900">{count}</p>
@@ -111,7 +106,7 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg border border-red-200 p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">
-                Overdue Tasks
+                {t('dashboard.overdueTasks')}
               </span>
             </div>
             <p className="text-2xl font-bold text-red-600">{data.overdue_tasks}</p>
@@ -125,34 +120,34 @@ export default function Dashboard() {
           to="/dashboard/content-items/new"
           className="rounded-lg bg-socialflow-600 px-4 py-2 text-sm font-medium text-white hover:bg-socialflow-700 transition-colors"
         >
-          + New Content
+          {t('dashboard.newContent')}
         </Link>
         <Link
           to="/dashboard/tasks/new"
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
         >
-          + New Task
+          {t('dashboard.newTask')}
         </Link>
       </div>
 
       {/* Recent items */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Recent Content ({totalContent} total)
+          {t('dashboard.recentContentTotal', { count: totalContent })}
         </h3>
         {data.recent_items.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center">
-            <p className="text-gray-500">No content yet. Create your first content item.</p>
+            <p className="text-gray-500">{t('dashboard.noContent')}</p>
           </div>
         ) : (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Title</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Platform</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Updated</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('dashboard.table.title')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('dashboard.table.status')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('dashboard.table.platform')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('dashboard.table.updated')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -168,7 +163,7 @@ export default function Dashboard() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[item.status] ?? ''}`}>
-                        {item.status}
+                        {getStatusLabel(item.status)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600 capitalize">{item.platform}</td>

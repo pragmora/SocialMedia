@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
 
 interface Client {
@@ -13,6 +14,7 @@ interface Client {
 }
 
 export default function ClientList() {
+  const { t } = useTranslation()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -29,40 +31,40 @@ export default function ClientList() {
   }, [])
 
   if (loading) {
-    return <p className="text-gray-500 p-4">Loading clients...</p>
+    return <p className="text-gray-500 p-4">{t('clients.loadingClients')}</p>
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">Clients</h2>
+        <h2 className="text-xl font-semibold text-gray-900">{t('clients.title')}</h2>
         <Link
           to="/dashboard/clients/new"
           className="rounded-lg bg-socialflow-600 px-4 py-2 text-sm font-medium text-white hover:bg-socialflow-700 transition-colors"
         >
-          + New Client
+          {t('clients.newClient')}
         </Link>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
           {error}
         </div>
       )}
 
       {clients.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center">
-          <p className="text-gray-500">No clients yet. Create your first client to get started.</p>
+          <p className="text-gray-500">{t('clients.noClients')}</p>
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Active</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Handles</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('clients.table.name')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('clients.table.active')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('clients.table.handles')}</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">{t('clients.table.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -76,9 +78,9 @@ export default function ClientList() {
                   </td>
                   <td className="px-4 py-3">
                     {c.active ? (
-                      <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">Active</span>
+                      <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">{t('clients.active')}</span>
                     ) : (
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">Inactive</span>
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{t('clients.inactive')}</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-500 text-xs">
@@ -95,7 +97,7 @@ export default function ClientList() {
                       to={`/dashboard/clients/${c.id}/edit`}
                       className="text-xs text-socialflow-600 hover:text-socialflow-700 font-medium"
                     >
-                      Edit
+                      {t('clients.edit')}
                     </Link>
                   </td>
                 </tr>

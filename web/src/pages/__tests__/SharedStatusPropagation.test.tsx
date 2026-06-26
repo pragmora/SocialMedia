@@ -71,15 +71,15 @@ describe('Shared NEXT_STATUS propagation — Calendar', () => {
     })
 
     await waitFor(() => {
-      expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
+      expect(screen.queryAllByTestId('skeleton-cell')).toHaveLength(0)
     })
 
     // Original transitions still present
-    expect(screen.getByRole('button', { name: 'Move to Draft' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Move to Approved' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mover a Borrador' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mover a Aprobado' })).toBeInTheDocument()
 
     // NEW transition from the augmented shared map
-    expect(screen.getByRole('button', { name: 'Move to Rejected' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mover a rejected' })).toBeInTheDocument()
   })
 })
 
@@ -116,11 +116,11 @@ describe('Shared NEXT_STATUS propagation — ContentDetail', () => {
     })
 
     // Original transitions still present
-    expect(screen.getByRole('button', { name: 'Draft' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Approved' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Borrador' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Aprobado' })).toBeInTheDocument()
 
     // NEW transition from the augmented shared map — ContentDetail buttons
-    // use text content as accessible name (no aria-label), so just 'Rejected'
-    expect(screen.getByRole('button', { name: 'Rejected' })).toBeInTheDocument()
+    // use text content as accessible name (no aria-label), so fallback is raw 'rejected'
+    expect(screen.getByRole('button', { name: 'rejected' })).toBeInTheDocument()
   })
 })

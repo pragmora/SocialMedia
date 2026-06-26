@@ -145,7 +145,7 @@ describe('apiClient', () => {
       expect(result.error).toEqual(
         expect.objectContaining({
           code: 'unknown',
-          message: 'Request failed',
+          message: 'Error en la solicitud',
         }),
       )
     })
@@ -182,7 +182,7 @@ describe('apiClient', () => {
 
       expect(result.error).toEqual({
         code: 'network',
-        message: 'Network error',
+          message: 'Error de red',
         details: String(networkErr),
       })
     })
@@ -197,7 +197,7 @@ describe('apiClient', () => {
 
       expect(result.error).toEqual({
         code: 'network',
-        message: 'Network error',
+          message: 'Error de red',
         details: expect.stringContaining('Failed to fetch') as unknown,
       })
     })
@@ -219,7 +219,7 @@ describe('apiClient', () => {
 
       expect(result.error).toMatchObject({
         code: 'parse',
-        message: 'Invalid JSON',
+          message: 'JSON inválido',
       })
       expect(result.error?.details).toMatchObject({
         status: 502,
@@ -389,7 +389,7 @@ describe('apiClient', () => {
 
       expect(result.error).toMatchObject({
         code: 'internal',
-        message: 'Request failed',
+        message: 'Error en la solicitud',
         details: undefined,
       })
     })

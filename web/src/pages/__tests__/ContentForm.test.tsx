@@ -45,19 +45,19 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
 
     // Heading renders immediately in create mode (no Loading... shown)
     await waitFor(() => {
-      expect(screen.getByText('New Content Item')).toBeInTheDocument()
+      expect(screen.getByText('Nuevo elemento')).toBeInTheDocument()
     })
 
     // Loading text must NOT appear in create mode
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
 
     // Clients preload API call must fire: GET /clients
     expect(mockGet).toHaveBeenCalledWith('/clients')
 
     // Form fields must be visible
-    expect(screen.getByLabelText('Title *')).toBeInTheDocument()
-    expect(screen.getByLabelText('Description')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Create Item' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Título *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Descripción')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Crear elemento' })).toBeInTheDocument()
   })
 
   it('in edit mode, fetching starts as true, shows Loading..., then pre-fills form fields', async () => {
@@ -82,7 +82,7 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
     renderWithRouter(<ContentForm />)
 
     // Loading... must show while fetching is true
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Cargando...')).toBeInTheDocument()
 
     // Both API calls must fire
     expect(mockGet).toHaveBeenCalledWith('/clients')
@@ -90,15 +90,15 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
 
     // Wait for data to resolve and form to render
     await waitFor(() => {
-      expect(screen.getByText('Edit Content Item')).toBeInTheDocument()
+      expect(screen.getByText('Editar elemento')).toBeInTheDocument()
     })
 
     // Title field must be pre-filled
-    const titleInput = screen.getByLabelText('Title *') as HTMLInputElement
+    const titleInput = screen.getByLabelText('Título *') as HTMLInputElement
     expect(titleInput.value).toBe('Summer Campaign')
 
     // Loading text must be gone
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
   })
 
   it('in create mode, clients preload still fires to populate client dropdown', async () => {
@@ -131,13 +131,13 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
     mockGet
       .mockResolvedValueOnce({ data: [] }) // clients preload
       .mockResolvedValueOnce({
-        error: { code: 'not_found', message: 'Content item not found' },
+        error: { code: 'not_found', message: 'elemento de contenido no encontrado' },
       })
 
     renderWithRouter(<ContentForm />)
 
     await waitFor(() => {
-      expect(screen.getByText('Content item not found')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('elemento de contenido no encontrado')
     })
   })
 })

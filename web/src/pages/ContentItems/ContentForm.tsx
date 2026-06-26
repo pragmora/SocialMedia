@@ -1,6 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
+import { getContentTypeLabel, getPlatformLabel } from '@/lib/labels'
 
 const PLATFORMS = ['instagram', 'facebook', 'twitter', 'linkedin', 'tiktok', 'youtube', 'other'] as const
 const CONTENT_TYPES = ['post', 'story', 'reel', 'video', 'carousel', 'other'] as const
@@ -20,6 +22,7 @@ interface ClientOption {
 }
 
 export default function ContentForm() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
@@ -85,24 +88,24 @@ export default function ContentForm() {
   }
 
   if (fetching) {
-    return <p className="text-gray-500 p-4">Loading...</p>
+    return <p className="text-gray-500 p-4">{t('app.loading')}</p>
   }
 
   return (
     <div className="max-w-lg">
       <h2 className="text-xl font-semibold text-gray-900 mb-6">
-        {isEdit ? 'Edit Content Item' : 'New Content Item'}
+        {isEdit ? t('content.editContentItem') : t('content.newContentItem')}
       </h2>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Title *</span>
+          <span className="text-sm font-medium text-gray-700">{t('content.form.title')}</span>
           <input
             type="text"
             value={title}
@@ -110,57 +113,57 @@ export default function ContentForm() {
             required
             autoFocus
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500"
-            placeholder="e.g. Summer Campaign Post"
+            placeholder={t('content.form.titlePlaceholder')}
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Description</span>
+          <span className="text-sm font-medium text-gray-700">{t('content.form.description')}</span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500"
-            placeholder="Brief description of the content..."
+            placeholder={t('content.form.descriptionPlaceholder')}
           />
         </label>
 
         <div className="grid grid-cols-2 gap-4">
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-gray-700">Platform</span>
+            <span className="text-sm font-medium text-gray-700">{t('content.form.platform')}</span>
             <select
               value={platform}
               onChange={(e) => setPlatform(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 bg-white"
             >
               {PLATFORMS.map((p) => (
-                <option key={p} value={p}>{p}</option>
+                <option key={p} value={p}>{getPlatformLabel(p)}</option>
               ))}
             </select>
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-gray-700">Type</span>
+            <span className="text-sm font-medium text-gray-700">{t('content.form.type')}</span>
             <select
               value={contentType}
               onChange={(e) => setContentType(e.target.value)}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 bg-white"
             >
-              {CONTENT_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
+              {CONTENT_TYPES.map((contentTypeOption) => (
+                <option key={contentTypeOption} value={contentTypeOption}>{getContentTypeLabel(contentTypeOption)}</option>
               ))}
             </select>
           </label>
         </div>
 
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Client</span>
+          <span className="text-sm font-medium text-gray-700">{t('content.form.client')}</span>
           <select
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 bg-white"
           >
-            <option value="">— No client —</option>
+            <option value="">{t('content.form.noClient')}</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -168,7 +171,7 @@ export default function ContentForm() {
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Scheduled Date</span>
+          <span className="text-sm font-medium text-gray-700">{t('content.form.scheduledDate')}</span>
           <input
             type="date"
             value={scheduledDate}
@@ -183,14 +186,14 @@ export default function ContentForm() {
             disabled={loading}
             className="rounded-lg bg-socialflow-600 px-4 py-2 text-sm font-medium text-white hover:bg-socialflow-700 transition-colors disabled:opacity-50"
           >
-            {loading ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Item'}
+            {loading ? t('content.saving') : isEdit ? t('content.saveChanges') : t('content.createItem')}
           </button>
           <button
             type="button"
             onClick={() => navigate('/dashboard/content-items')}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            Cancel
+            {t('content.cancel')}
           </button>
         </div>
       </form>

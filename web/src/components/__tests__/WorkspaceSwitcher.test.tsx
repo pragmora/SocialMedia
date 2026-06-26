@@ -149,7 +149,7 @@ describe('WorkspaceSwitcher', () => {
     await userEvent.click(trigger)
 
     // Active workspace has "(active)" badge
-    const activeBtn = screen.getByRole('button', { name: /Acme Corp.*active/i })
+    const activeBtn = screen.getByRole('button', { name: /Acme Corp.*\(activo\)/i })
     await userEvent.click(activeBtn)
 
     // switchWorkspace must NOT be called
@@ -204,13 +204,27 @@ describe('WorkspaceSwitcher', () => {
     await userEvent.click(trigger)
 
     // The active workspace button should contain "(active)" text
-    const activeBtn = screen.getByRole('button', { name: /Acme Corp.*active/i })
+    const activeBtn = screen.getByRole('button', { name: /Acme Corp.*\(activo\)/i })
     expect(activeBtn).toBeInTheDocument()
 
     // Non-active workspaces do NOT have "(active)" badge
     const inactiveBtn = screen.getByRole('button', { name: /^Startup Inc$/ })
     expect(inactiveBtn).toBeInTheDocument()
     expect(inactiveBtn).not.toHaveTextContent('(active)')
+  })
+
+  it('renders the active workspace badge with a single parenthesized label', async () => {
+    setup()
+    render(<WorkspaceSwitcher />)
+
+    const trigger = await screen.findByRole('button', { name: /Acme Corp/i })
+    await userEvent.click(trigger)
+
+    const activeBtn = screen.getByRole('button', { name: 'Acme Corp (activo)' })
+    expect(activeBtn).toBeInTheDocument()
+    expect(activeBtn).toHaveTextContent('Acme Corp')
+    expect(activeBtn).toHaveTextContent('(activo)')
+    expect(activeBtn).not.toHaveTextContent('((activo))')
   })
 
   // ── Edge: workspaces empty state ────────────────────────────────
@@ -220,10 +234,10 @@ describe('WorkspaceSwitcher', () => {
     render(<WorkspaceSwitcher />)
 
     // Open dropdown to see empty state message
-    const trigger = await screen.findByRole('button', { name: /No workspace/i })
+    const trigger = await screen.findByRole('button', { name: /Sin espacio/i })
     await userEvent.click(trigger)
 
-    expect(screen.getByText('No workspaces yet.')).toBeInTheDocument()
+    expect(screen.getByText('Sin espacios de trabajo aún.')).toBeInTheDocument()
   })
 
   // ── Edge: API error loading workspaces ──────────────────────────
@@ -233,10 +247,10 @@ describe('WorkspaceSwitcher', () => {
     render(<WorkspaceSwitcher />)
 
     // Open dropdown to see empty state message
-    const trigger = await screen.findByRole('button', { name: /No workspace/i })
+    const trigger = await screen.findByRole('button', { name: /Sin espacio/i })
     await userEvent.click(trigger)
 
-    expect(screen.getByText('No workspaces yet.')).toBeInTheDocument()
+    expect(screen.getByText('Sin espacios de trabajo aún.')).toBeInTheDocument()
   })
 
   // ── Regression: menu toggle behavior ────────────────────────────

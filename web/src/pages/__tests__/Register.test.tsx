@@ -42,30 +42,30 @@ describe('Register page', () => {
   it('renders name, email, password fields, submit button, and login link', () => {
     renderWithRouter(<Register />)
 
-    expect(screen.getByLabelText('Name')).toBeInTheDocument()
-    expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Register' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login')
+    expect(screen.getByLabelText('Nombre')).toBeInTheDocument()
+    expect(screen.getByLabelText('Correo electrónico')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contraseña')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Registrarse' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute('href', '/login')
   })
 
   it('displays error message when registration API returns an error', async () => {
     mockPost.mockResolvedValue({
-      error: { code: 'email_taken', message: 'Email already registered' },
+      error: { code: 'email_taken', message: 'el correo ya está registrado' },
     })
 
     renderWithRouter(<Register />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'taken@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'pass123456' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }))
 
     await waitFor(() => {
-      expect(screen.getByText('Email already registered')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('el correo ya está registrado')
     })
 
     // reauthenticate is NOT called on registration error
@@ -81,13 +81,13 @@ describe('Register page', () => {
 
     renderWithRouter(<Register />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'new@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'pass123456' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }))
 
     // reauthenticate is called instead of manual login
     await waitFor(() => {
@@ -114,13 +114,13 @@ describe('Register page', () => {
 
     renderWithRouter(<Register />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'new@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'pass123456' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }))
 
     // reauthenticate was called
     await waitFor(() => {
@@ -129,11 +129,9 @@ describe('Register page', () => {
 
     // Error message is displayed
     await waitFor(() => {
-      expect(
-        screen.getByText(
-          'Account created but session not verified. Please log in.',
-        ),
-      ).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Cuenta creada pero la sesión no se verificó. Iniciá sesión.',
+      )
     })
 
     // Navigation does NOT happen
@@ -145,16 +143,16 @@ describe('Register page', () => {
 
     renderWithRouter(<Register />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'new@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'pass123456' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }))
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Creating account...' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Creando cuenta...' })).toBeInTheDocument()
     })
 
     expect(screen.getByRole('button')).toBeDisabled()
@@ -176,13 +174,13 @@ describe('Register page', () => {
 
     renderWithRouter(<Register />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'new@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'pass123456' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }))
 
     // reauthenticate is called after registration succeeds
     await waitFor(() => {

@@ -42,18 +42,18 @@ describe('ClientForm — fetching-state behavior preservation (lint hardening)',
 
     // Form heading should render immediately (no "Loading..." shown)
     await waitFor(() => {
-      expect(screen.getByText('New Client')).toBeInTheDocument()
+      expect(screen.getByText('Nuevo cliente')).toBeInTheDocument()
     })
 
     // Loading text should NOT appear in create mode
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
 
     // Form fields should be visible
-    expect(screen.getByLabelText('Name *')).toBeInTheDocument()
-    expect(screen.getByLabelText('Notes')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Notas')).toBeInTheDocument()
 
     // Submit button should show create label
-    expect(screen.getByRole('button', { name: 'Create Client' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Crear cliente' })).toBeInTheDocument()
   })
 
   it('in edit mode, fetching starts as true, shows Loading... then renders form with pre-filled data', async () => {
@@ -66,29 +66,29 @@ describe('ClientForm — fetching-state behavior preservation (lint hardening)',
     renderWithRouter(<ClientForm />)
 
     // Loading... must appear while fetching is true
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Cargando...')).toBeInTheDocument()
 
     // API must be called with the correct endpoint
     expect(mockGet).toHaveBeenCalledWith('/clients/client-123')
 
     // Wait for data to load and form to render
     await waitFor(() => {
-      expect(screen.getByText('Edit Client')).toBeInTheDocument()
+      expect(screen.getByText('Editar cliente')).toBeInTheDocument()
     })
 
     // Form fields must be pre-filled with API data
-    const nameInput = screen.getByLabelText('Name *') as HTMLInputElement
+    const nameInput = screen.getByLabelText('Nombre *') as HTMLInputElement
     expect(nameInput.value).toBe('Acme Corp')
 
     // Loading text must disappear after data resolves
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
   })
 
   it('in edit mode, shows error when API returns an error', async () => {
     vi.mocked(useParams).mockReturnValue({ id: 'client-err' })
 
     mockGet.mockResolvedValue({
-      error: { code: 'not_found', message: 'Client not found' },
+      error: { code: 'not_found', message: 'cliente no encontrado' },
     })
 
     renderWithRouter(<ClientForm />)
@@ -98,7 +98,7 @@ describe('ClientForm — fetching-state behavior preservation (lint hardening)',
 
     // Error should surface as text after loading resolves
     await waitFor(() => {
-      expect(screen.getByText('Client not found')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('cliente no encontrado')
     })
   })
 
@@ -112,9 +112,9 @@ describe('ClientForm — fetching-state behavior preservation (lint hardening)',
     renderWithRouter(<ClientForm />)
 
     await waitFor(() => {
-      expect(screen.getByText('Edit Client')).toBeInTheDocument()
+      expect(screen.getByText('Editar cliente')).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeInTheDocument()
   })
 })

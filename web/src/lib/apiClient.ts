@@ -63,7 +63,7 @@ function normalizeError(
       rawText.length > 500 ? rawText.slice(0, 500) + '...' : rawText
     return {
       code: 'parse',
-      message: 'Invalid JSON',
+      message: 'JSON inválido',
       details: { status: res.status, preview },
       status: res.status,
     }
@@ -79,7 +79,7 @@ function normalizeError(
     const err = (parsed as { error: Record<string, unknown> }).error
     return {
       code: String(err.code ?? 'unknown'),
-      message: String(err.message ?? 'Request failed'),
+      message: String(err.message ?? 'Error en la solicitud'),
       details: 'details' in err ? err.details : undefined,
       status: res.status,
     }
@@ -88,7 +88,7 @@ function normalizeError(
   // Fallback error
   return {
     code: 'unknown',
-    message: 'Request failed',
+      message: 'Error en la solicitud',
     status: res.status,
   }
 }
@@ -156,7 +156,7 @@ export class ApiClient {
       return {
         error: {
           code: 'network',
-          message: 'Network error',
+          message: 'Error de red',
           details: String(err),
         },
       }

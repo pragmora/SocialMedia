@@ -43,12 +43,12 @@ describe('Login page', () => {
     renderWithRouter(<Login />)
 
     // Form fields
-    expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Log in' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Correo electrónico')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contraseña')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
 
     // Register link
-    expect(screen.getByRole('link', { name: 'Register' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Registrarse' })).toHaveAttribute(
       'href',
       '/register',
     )
@@ -56,23 +56,23 @@ describe('Login page', () => {
 
   it('displays error message when API returns an error', async () => {
     mockPost.mockResolvedValue({
-      error: { code: 'invalid_credentials', message: 'Invalid email or password' },
+      error: { code: 'invalid_credentials', message: 'Correo o contraseña inválidos' },
     })
 
     renderWithRouter(<Login />)
 
     // Fill and submit the form
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'bad@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'wrong' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
     // Wait for error message to appear
     await waitFor(() => {
-      expect(screen.getByText('Invalid email or password')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('Correo o contraseña inválidos')
     })
 
     // Verify API was called with correct payload
@@ -88,17 +88,17 @@ describe('Login page', () => {
 
     renderWithRouter(<Login />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'user@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'pass123' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
     // Button text changes to loading state
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Logging in...' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Iniciando sesión...' })).toBeInTheDocument()
     })
 
     // Button is disabled while loading
@@ -115,13 +115,13 @@ describe('Login page', () => {
 
     renderWithRouter(<Login />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'user@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'pass123' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
     // reauthenticate is called after login succeeds
     await waitFor(() => {
@@ -142,13 +142,13 @@ describe('Login page', () => {
 
     renderWithRouter(<Login />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'user@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'pass123' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
     // reauthenticate was called
     await waitFor(() => {
@@ -157,9 +157,9 @@ describe('Login page', () => {
 
     // Error message is displayed
     await waitFor(() => {
-      expect(
-        screen.getByText('Login succeeded but session could not be verified. Please try again.'),
-      ).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Inicio de sesión exitoso pero no se pudo verificar la sesión. Intentá de nuevo.',
+      )
     })
 
     // Navigation does NOT happen
@@ -168,22 +168,22 @@ describe('Login page', () => {
 
   it('does NOT call reauthenticate when login API returns an error', async () => {
     mockPost.mockResolvedValue({
-      error: { code: 'invalid_credentials', message: 'Invalid email or password' },
+      error: { code: 'invalid_credentials', message: 'Correo o contraseña inválidos' },
     })
 
     renderWithRouter(<Login />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'bad@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'wrong' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
     // Error message is displayed
     await waitFor(() => {
-      expect(screen.getByText('Invalid email or password')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('Correo o contraseña inválidos')
     })
 
     // reauthenticate is NOT called
@@ -208,13 +208,13 @@ describe('Login page', () => {
 
     renderWithRouter(<Login />)
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    fireEvent.change(screen.getByLabelText('Correo electrónico'), {
       target: { value: 'user@test.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'pass123' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 
     // reauthenticate is called after login succeeds
     await waitFor(() => {
