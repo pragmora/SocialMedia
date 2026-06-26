@@ -119,6 +119,10 @@ func TestValidateYYYYMMDD(t *testing.T) {
 				if fmtErr.Expected != "YYYY-MM-DD" {
 					t.Errorf("expected 'YYYY-MM-DD', got %q", fmtErr.Expected)
 				}
+				wantMessage := "formato inválido para " + tt.field + ": \"" + tt.wantValue + "\" (se espera YYYY-MM-DD)"
+				if err.Error() != wantMessage {
+					t.Errorf("expected message %q, got %q", wantMessage, err.Error())
+				}
 			} else {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)

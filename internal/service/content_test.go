@@ -484,6 +484,57 @@ func TestUpdateContent_RejectsInvalidScheduledDate(t *testing.T) {
 	}
 }
 
+func TestInvalidEnumError_ErrorSpanish(t *testing.T) {
+	tests := []struct {
+		name    string
+		err     *InvalidEnumError
+		wantMsg string
+	}{
+		{
+			name: "platform message in spanish",
+			err: &InvalidEnumError{Field: "platform", Value: "tumblr", Allowed: []string{"instagram", "facebook"}},
+			wantMsg: "valor inválido para platform: \"tumblr\" (permitidos: [instagram facebook])",
+		},
+		{
+			name: "status message in spanish",
+			err: &InvalidEnumError{Field: "status", Value: "deleted", Allowed: []string{"draft", "review"}},
+			wantMsg: "valor inválido para status: \"deleted\" (permitidos: [draft review])",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.err.Error(); got != tt.wantMsg {
+				t.Fatalf("expected message %q, got %q", tt.wantMsg, got)
+			}
+		})
+	}
+}
+
+func TestParseMonthRange_InvalidMonthMessageSpanish(t *testing.T) {
+	tests := []struct {
+		name  string
+		month string
+	}{
+		{name: "slashes are rejected", month: "2026/06"},
+		{name: "textual month is rejected", month: "jun-2026"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := parseMonthRange(tt.month)
+			if err == nil {
+				t.Fatalf("expected error for invalid month %q, got nil", tt.month)
+			}
+
+			want := "formato de mes inválido: " + tt.month + " (se espera YYYY-MM)"
+			if err.Error() != want {
+				t.Fatalf("expected message %q, got %q", want, err.Error())
+			}
+		})
+	}
+}
+
 func TestMapContentFKError_UnknownError_PassesThrough(t *testing.T) {
 	unknown := errors.New("some other error")
 	err := mapContentFKError(unknown)

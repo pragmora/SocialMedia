@@ -31,7 +31,7 @@ type CreateClientParams struct {
 // Create adds a new client to the workspace.
 func (s *ClientService) Create(ctx context.Context, workspaceID string, params CreateClientParams) (*domain.Client, error) {
 	if params.Name == "" {
-		return nil, fmt.Errorf("client name is required")
+		return nil, fmt.Errorf("el nombre del cliente es obligatorio")
 	}
 	return s.store.CreateClient(ctx, s.pool, workspaceID, params.Name, params.Notes, params.SocialHandles)
 }
@@ -47,14 +47,14 @@ type UpdateClientParams struct {
 // Update modifies an existing client.
 func (s *ClientService) Update(ctx context.Context, workspaceID, id string, params UpdateClientParams) (*domain.Client, error) {
 	if params.Name == "" {
-		return nil, fmt.Errorf("client name is required")
+		return nil, fmt.Errorf("el nombre del cliente es obligatorio")
 	}
 	c, err := s.store.UpdateClient(ctx, s.pool, workspaceID, id, params.Name, params.Notes, params.SocialHandles, params.Active)
 	if err != nil {
 		return nil, err
 	}
 	if c == nil {
-		return nil, fmt.Errorf("client not found")
+		return nil, fmt.Errorf("cliente no encontrado")
 	}
 	return c, nil
 }
@@ -66,7 +66,7 @@ func (s *ClientService) Get(ctx context.Context, workspaceID, id string) (*domai
 		return nil, err
 	}
 	if c == nil {
-		return nil, fmt.Errorf("client not found")
+		return nil, fmt.Errorf("cliente no encontrado")
 	}
 	return c, nil
 }
@@ -79,7 +79,7 @@ func (s *ClientService) List(ctx context.Context, workspaceID string) ([]domain.
 // Delete soft-deletes a client.
 func (s *ClientService) Delete(ctx context.Context, workspaceID, id string) error {
 	if err := s.store.DeleteClient(ctx, s.pool, workspaceID, id); err != nil {
-		return fmt.Errorf("client not found")
+		return fmt.Errorf("cliente no encontrado")
 	}
 	return nil
 }

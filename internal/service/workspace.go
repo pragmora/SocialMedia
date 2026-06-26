@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/Nico-Csk/socialflow/internal/domain"
 	"github.com/Nico-Csk/socialflow/internal/store"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // WorkspaceService implements workspace and membership use cases.
@@ -38,7 +38,7 @@ func (s *WorkspaceService) List(ctx context.Context, userID string) ([]domain.Wo
 // Create creates a new workspace and makes the creator an admin.
 func (s *WorkspaceService) Create(ctx context.Context, userID, name string) (*domain.Workspace, error) {
 	if name == "" {
-		return nil, fmt.Errorf("workspace name is required")
+		return nil, fmt.Errorf("el nombre del espacio de trabajo es obligatorio")
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -70,13 +70,13 @@ func (s *WorkspaceService) Get(ctx context.Context, userID, workspaceID string) 
 		return nil, err
 	}
 	if ws == nil || ws.DeletedAt != nil {
-		return nil, fmt.Errorf("workspace not found")
+		return nil, fmt.Errorf(ErrMsgWorkspaceNotFound)
 	}
 
 	// Verify membership
 	m, err := s.store.GetMembership(ctx, s.pool, workspaceID, userID)
 	if err != nil || m == nil {
-		return nil, fmt.Errorf("workspace not found")
+		return nil, fmt.Errorf(ErrMsgWorkspaceNotFound)
 	}
 
 	return ws, nil
@@ -88,7 +88,7 @@ func (s *WorkspaceService) Update(ctx context.Context, userID, workspaceID, name
 		return nil, err
 	}
 	if name == "" {
-		return nil, fmt.Errorf("workspace name is required")
+		return nil, fmt.Errorf("el nombre del espacio de trabajo es obligatorio")
 	}
 
 	ws, err := s.store.UpdateWorkspace(ctx, s.pool, workspaceID, name)
@@ -96,7 +96,7 @@ func (s *WorkspaceService) Update(ctx context.Context, userID, workspaceID, name
 		return nil, err
 	}
 	if ws == nil {
-		return nil, fmt.Errorf("workspace not found")
+		return nil, fmt.Errorf(ErrMsgWorkspaceNotFound)
 	}
 	return ws, nil
 }
@@ -114,7 +114,7 @@ func (s *WorkspaceService) SwitchActive(ctx context.Context, claims *domain.Auth
 	// Verify membership and get role
 	m, err := s.store.GetMembership(ctx, s.pool, workspaceID, claims.UserID)
 	if err != nil || m == nil {
-		return "", fmt.Errorf("workspace not found or not a member")
+		return "", fmt.Errorf("espacio de trabajo no encontrado o sin membresia")
 	}
 
 	now := time.Now()
@@ -139,7 +139,7 @@ func (s *WorkspaceService) ListMembers(ctx context.Context, userID, workspaceID 
 	// Any member can list members
 	m, err := s.store.GetMembership(ctx, s.pool, workspaceID, userID)
 	if err != nil || m == nil {
-		return nil, fmt.Errorf("workspace not found")
+		return nil, fmt.Errorf(ErrMsgWorkspaceNotFound)
 	}
 	return s.store.ListMembershipsByWorkspace(ctx, s.pool, workspaceID)
 }
@@ -150,10 +150,10 @@ func (s *WorkspaceService) UpdateMemberRole(ctx context.Context, actorID, worksp
 		return nil, err
 	}
 	if !role.IsValid() {
-		return nil, fmt.Errorf("invalid role: %s", role)
+		return nil, fmt.Errorf("rol invalido: %s", role)
 	}
 	if actorID == targetUserID {
-		return nil, fmt.Errorf("cannot change your own role")
+		return nil, fmt.Errorf("no puedes cambiar tu propio rol")
 	}
 
 	m, err := s.store.UpdateMembershipRole(ctx, s.pool, workspaceID, targetUserID, role)
@@ -161,7 +161,7 @@ func (s *WorkspaceService) UpdateMemberRole(ctx context.Context, actorID, worksp
 		return nil, err
 	}
 	if m == nil {
-		return nil, fmt.Errorf("membership not found")
+		return nil, fmt.Errorf("membresia no encontrada")
 	}
 	return m, nil
 }
@@ -172,7 +172,7 @@ func (s *WorkspaceService) RemoveMember(ctx context.Context, actorID, workspaceI
 		return err
 	}
 	if actorID == targetUserID {
-		return fmt.Errorf("cannot remove yourself from the workspace; delete the workspace instead")
+		return fmt.Errorf("no puedes quitarte del espacio de trabajo; elimina el espacio de trabajo en su lugar")
 	}
 	return s.store.DeleteMembership(ctx, s.pool, workspaceID, targetUserID)
 }
@@ -234,10 +234,10 @@ func (s *WorkspaceService) claimInviteTx(ctx context.Context, db store.DB, userI
 		return nil, fmt.Errorf("lookup invite: %w", err)
 	}
 	if inv == nil {
-		return nil, fmt.Errorf("invite not found")
+		return nil, fmt.Errorf(ErrMsgInviteNotFound)
 	}
 	if !inv.IsUsable() {
-		return nil, fmt.Errorf("invite is expired or exhausted")
+		return nil, fmt.Errorf(ErrMsgInviteUnavailable)
 	}
 
 	m, err := s.resolveInviteMembership(ctx, db, inv.WorkspaceID, userID)
@@ -247,7 +247,7 @@ func (s *WorkspaceService) claimInviteTx(ctx context.Context, db store.DB, userI
 
 	if err := s.store.IncrementInviteUse(ctx, db, inv.ID); err != nil {
 		if errors.Is(err, store.ErrInviteExhausted) {
-			return nil, fmt.Errorf("invite is expired or exhausted")
+			return nil, fmt.Errorf(ErrMsgInviteUnavailable)
 		}
 		return nil, fmt.Errorf("increment invite use: %w", err)
 	}
@@ -284,13 +284,13 @@ func (s *WorkspaceService) resolveInviteMembership(
 func (s *WorkspaceService) requireAdminRole(ctx context.Context, userID, workspaceID string) error {
 	m, err := s.store.GetMembership(ctx, s.pool, workspaceID, userID)
 	if err != nil {
-		return fmt.Errorf("workspace not found")
+		return fmt.Errorf(ErrMsgWorkspaceNotFound)
 	}
 	if m == nil {
-		return fmt.Errorf("workspace not found")
+		return fmt.Errorf(ErrMsgWorkspaceNotFound)
 	}
 	if m.Role != domain.RoleAdmin {
-		return fmt.Errorf("admin role required")
+		return fmt.Errorf(ErrMsgAdminRoleRequired)
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -8,9 +9,16 @@ import (
 	"github.com/Nico-Csk/socialflow/internal/service"
 )
 
+type authHandlerService interface {
+	Register(rctx context.Context, creds domain.Credentials) (*domain.User, error)
+	Login(rctx context.Context, creds domain.Credentials) (string, *domain.User, error)
+	SetAuthCookie(w http.ResponseWriter, token string)
+	ClearAuthCookie(w http.ResponseWriter)
+}
+
 // AuthHandler exposes auth endpoints.
 type AuthHandler struct {
-	authSvc *service.AuthService
+	authSvc authHandlerService
 }
 
 // NewAuthHandler creates an AuthHandler.
@@ -22,7 +30,7 @@ func NewAuthHandler(authSvc *service.AuthService) *AuthHandler {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var creds domain.Credentials
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -39,7 +47,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var creds domain.Credentials
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -63,7 +71,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	userID := UserIDFromContext(r.Context())
 	if userID == "" {
-		WriteError(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+		WriteError(w, http.StatusUnauthorized, "unauthorized", "autenticación requerida")
 		return
 	}
 

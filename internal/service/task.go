@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/Nico-Csk/socialflow/internal/domain"
 	"github.com/Nico-Csk/socialflow/internal/store"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // TaskService implements task CRUD scoped by workspace.
@@ -34,7 +34,7 @@ type CreateTaskParams struct {
 // Create adds a new task to the workspace.
 func (s *TaskService) Create(ctx context.Context, workspaceID string, params CreateTaskParams) (*domain.Task, error) {
 	if params.Title == "" {
-		return nil, fmt.Errorf("task title is required")
+		return nil, fmt.Errorf("el titulo de la tarea es obligatorio")
 	}
 	if err := validateYYYYMMDD("due_date", params.DueDate); err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ type UpdateTaskParams struct {
 // Update modifies an existing task.
 func (s *TaskService) Update(ctx context.Context, workspaceID, id string, params UpdateTaskParams) (*domain.Task, error) {
 	if params.Title == "" {
-		return nil, fmt.Errorf("task title is required")
+		return nil, fmt.Errorf("el titulo de la tarea es obligatorio")
 	}
 	if err := validateYYYYMMDD("due_date", params.DueDate); err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func (s *TaskService) Update(ctx context.Context, workspaceID, id string, params
 		return nil, mapTaskFKError(err)
 	}
 	if t == nil {
-		return nil, fmt.Errorf("task not found")
+		return nil, fmt.Errorf(ErrMsgTaskNotFound)
 	}
 	return t, nil
 }
@@ -88,17 +88,17 @@ func mapTaskFKError(err error) error {
 	case errors.Is(err, store.ErrClientNotInWorkspace):
 		return &InvalidReferenceError{
 			Field:   "client_id",
-			Message: "client does not belong to this workspace",
+			Message: "el cliente no pertenece a este espacio de trabajo",
 		}
 	case errors.Is(err, store.ErrContentItemNotInWorkspace):
 		return &InvalidReferenceError{
 			Field:   "content_item_id",
-			Message: "content item does not belong to this workspace",
+			Message: "el elemento de contenido no pertenece a este espacio de trabajo",
 		}
 	case errors.Is(err, store.ErrAssigneeNotInWorkspace):
 		return &InvalidReferenceError{
 			Field:   "assignee_id",
-			Message: "assignee is not a member of this workspace",
+			Message: "el asignado no es miembro de este espacio de trabajo",
 		}
 	default:
 		return err
@@ -112,7 +112,7 @@ func (s *TaskService) Get(ctx context.Context, workspaceID, id string) (*domain.
 		return nil, err
 	}
 	if t == nil {
-		return nil, fmt.Errorf("task not found")
+		return nil, fmt.Errorf(ErrMsgTaskNotFound)
 	}
 	return t, nil
 }
@@ -125,7 +125,7 @@ func (s *TaskService) List(ctx context.Context, workspaceID string) ([]domain.Ta
 // Delete hard-deletes a task.
 func (s *TaskService) Delete(ctx context.Context, workspaceID, id string) error {
 	if err := s.store.DeleteTask(ctx, s.pool, workspaceID, id); err != nil {
-		return fmt.Errorf("task not found")
+		return fmt.Errorf(ErrMsgTaskNotFound)
 	}
 	return nil
 }
@@ -137,7 +137,7 @@ func (s *TaskService) ToggleDone(ctx context.Context, workspaceID, id string) (*
 		return nil, err
 	}
 	if t == nil {
-		return nil, fmt.Errorf("task not found")
+		return nil, fmt.Errorf(ErrMsgTaskNotFound)
 	}
 
 	return s.store.UpdateTask(ctx, s.pool, workspaceID, id,

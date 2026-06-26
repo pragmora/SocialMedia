@@ -2,6 +2,17 @@ package service
 
 import "fmt"
 
+const (
+	ErrMsgEmailAlreadyRegistered = "el correo ya está registrado"
+	ErrMsgContentItemNotFound = "elemento de contenido no encontrado"
+	ErrMsgTaskNotFound        = "tarea no encontrada"
+	ErrMsgCommentNotFound     = "comentario no encontrado"
+	ErrMsgWorkspaceNotFound   = "espacio de trabajo no encontrado"
+	ErrMsgInviteNotFound      = "invitacion no encontrada"
+	ErrMsgInviteUnavailable   = "la invitacion expiro o no tiene usos disponibles"
+	ErrMsgAdminRoleRequired   = "se requiere rol de administrador"
+)
+
 // InvalidReferenceError is returned when a store-layer FK guard rejects a
 // workspace-scoped reference (client_id, content_item_id, assignee_id).
 // The Field property identifies which reference was invalid.
@@ -11,7 +22,7 @@ type InvalidReferenceError struct {
 }
 
 func (e *InvalidReferenceError) Error() string {
-	return fmt.Sprintf("invalid %s: %s", e.Field, e.Message)
+	return fmt.Sprintf("referencia invalida para %s: %s", e.Field, e.Message)
 }
 
 // InvalidEnumError is returned when a create/update/transition request
@@ -24,7 +35,7 @@ type InvalidEnumError struct {
 }
 
 func (e *InvalidEnumError) Error() string {
-	return fmt.Sprintf("invalid %s: %q (allowed: %v)", e.Field, e.Value, e.Allowed)
+	return fmt.Sprintf("valor inválido para %s: %q (permitidos: %v)", e.Field, e.Value, e.Allowed)
 }
 
 // InvalidFormatError is returned when a string field does not match the
@@ -37,5 +48,5 @@ type InvalidFormatError struct {
 }
 
 func (e *InvalidFormatError) Error() string {
-	return fmt.Sprintf("invalid %s: %q (expected %s)", e.Field, e.Value, e.Expected)
+	return fmt.Sprintf("formato inválido para %s: %q (se espera %s)", e.Field, e.Value, e.Expected)
 }

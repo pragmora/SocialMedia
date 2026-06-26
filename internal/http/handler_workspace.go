@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/Nico-Csk/socialflow/internal/domain"
 	"github.com/Nico-Csk/socialflow/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 // WorkspaceHandler exposes workspace and membership endpoints.
@@ -28,7 +28,7 @@ func (h *WorkspaceHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID := UserIDFromContext(r.Context())
 	workspaces, err := h.wsSvc.List(r.Context(), userID)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "internal", "failed to list workspaces")
+		WriteError(w, http.StatusInternalServerError, "internal", "error al listar espacios de trabajo")
 		return
 	}
 	if workspaces == nil {
@@ -45,7 +45,7 @@ func (h *WorkspaceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -65,7 +65,7 @@ func (h *WorkspaceHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	ws, err := h.wsSvc.Get(r.Context(), userID, wsID)
 	if err != nil {
-		WriteError(w, http.StatusNotFound, "not_found", "workspace not found")
+		WriteError(w, http.StatusNotFound, "not_found", "espacio de trabajo no encontrado")
 		return
 	}
 
@@ -81,7 +81,7 @@ func (h *WorkspaceHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -89,7 +89,7 @@ func (h *WorkspaceHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		code := http.StatusBadRequest
 		errCode := "bad_request"
-		if err.Error() == "workspace not found" {
+		if err.Error() == service.ErrMsgWorkspaceNotFound {
 			code = http.StatusNotFound
 			errCode = "not_found"
 		}
@@ -106,7 +106,7 @@ func (h *WorkspaceHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	wsID := chi.URLParam(r, "id")
 
 	if err := h.wsSvc.Delete(r.Context(), userID, wsID); err != nil {
-		WriteError(w, http.StatusNotFound, "not_found", "workspace not found")
+		WriteError(w, http.StatusNotFound, "not_found", "espacio de trabajo no encontrado")
 		return
 	}
 
@@ -119,31 +119,31 @@ func (h *WorkspaceHandler) SwitchActive(w http.ResponseWriter, r *http.Request) 
 		WorkspaceID string `json:"workspace_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
 	if body.WorkspaceID == "" {
-		WriteError(w, http.StatusBadRequest, "bad_request", "workspace_id is required")
+		WriteError(w, http.StatusBadRequest, "bad_request", "el id del espacio de trabajo es obligatorio")
 		return
 	}
 
 	// Parse current claims from the cookie
 	cookie, err := r.Cookie(h.authSvc.CookieName())
 	if err != nil {
-		WriteError(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+		WriteError(w, http.StatusUnauthorized, "unauthorized", "autenticación requerida")
 		return
 	}
 
 	claims, err := h.authSvc.ParseToken(cookie.Value)
 	if err != nil {
-		WriteError(w, http.StatusUnauthorized, "unauthorized", "invalid token")
+		WriteError(w, http.StatusUnauthorized, "unauthorized", "token inválido")
 		return
 	}
 
 	token, err := h.wsSvc.SwitchActive(r.Context(), claims, body.WorkspaceID)
 	if err != nil {
-		WriteError(w, http.StatusNotFound, "not_found", "workspace not found")
+		WriteError(w, http.StatusNotFound, "not_found", "espacio de trabajo no encontrado")
 		return
 	}
 
@@ -171,7 +171,7 @@ func (h *WorkspaceHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 
 	members, err := h.wsSvc.ListMembers(r.Context(), userID, wsID)
 	if err != nil {
-		WriteError(w, http.StatusNotFound, "not_found", "workspace not found")
+		WriteError(w, http.StatusNotFound, "not_found", "espacio de trabajo no encontrado")
 		return
 	}
 
@@ -188,7 +188,7 @@ func (h *WorkspaceHandler) UpdateMemberRole(w http.ResponseWriter, r *http.Reque
 		Role string `json:"role"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 

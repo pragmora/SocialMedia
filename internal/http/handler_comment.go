@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/Nico-Csk/socialflow/internal/domain"
 	"github.com/Nico-Csk/socialflow/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 // CommentHandler exposes comment endpoints.
@@ -26,7 +26,7 @@ func (h *CommentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	comments, err := h.svc.List(r.Context(), wsID, contentItemID)
 	if err != nil {
-		WriteError(w, http.StatusNotFound, "not_found", "content item not found")
+		WriteError(w, http.StatusNotFound, "not_found", "elemento de contenido no encontrado")
 		return
 	}
 	if comments == nil {
@@ -45,7 +45,7 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Body string `json:"body"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -53,7 +53,7 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		code := http.StatusBadRequest
 		errCode := "bad_request"
-		if err.Error() == "content item not found" {
+		if err.Error() == service.ErrMsgContentItemNotFound {
 			code = http.StatusNotFound
 			errCode = "not_found"
 		}
@@ -71,7 +71,7 @@ func (h *CommentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	commentID := chi.URLParam(r, "commentID")
 
 	if err := h.svc.Delete(r.Context(), wsID, commentID, userID); err != nil {
-		WriteError(w, http.StatusNotFound, "not_found", "comment not found")
+		WriteError(w, http.StatusNotFound, "not_found", "comentario no encontrado")
 		return
 	}
 

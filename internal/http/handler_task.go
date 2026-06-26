@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/Nico-Csk/socialflow/internal/domain"
 	"github.com/Nico-Csk/socialflow/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 // TaskHandler exposes task CRUD endpoints.
@@ -24,7 +24,7 @@ func (h *TaskHandler) List(w http.ResponseWriter, r *http.Request) {
 	wsID := WorkspaceIDFromContext(r.Context())
 	tasks, err := h.svc.List(r.Context(), wsID)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "internal", "failed to list tasks")
+		WriteError(w, http.StatusInternalServerError, "internal", "error al listar tareas")
 		return
 	}
 	if tasks == nil {
@@ -39,7 +39,7 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var params service.CreateTaskParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -73,7 +73,7 @@ func (h *TaskHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	task, err := h.svc.Get(r.Context(), wsID, id)
 	if err != nil {
-		WriteError(w, http.StatusNotFound, "not_found", "task not found")
+		WriteError(w, http.StatusNotFound, "not_found", "tarea no encontrada")
 		return
 	}
 	WriteOK(w, task)
@@ -86,7 +86,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var params service.UpdateTaskParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -108,7 +108,7 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 		code := http.StatusBadRequest
 		errCode := "bad_request"
-		if err.Error() == "task not found" {
+		if err.Error() == service.ErrMsgTaskNotFound {
 			code = http.StatusNotFound
 			errCode = "not_found"
 		}
@@ -124,7 +124,7 @@ func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	if err := h.svc.Delete(r.Context(), wsID, id); err != nil {
-		WriteError(w, http.StatusNotFound, "not_found", "task not found")
+		WriteError(w, http.StatusNotFound, "not_found", "tarea no encontrada")
 		return
 	}
 	WriteNoContent(w)

@@ -39,7 +39,7 @@ func newCommentTestEnv(t *testing.T) *commentTestEnv {
 					ciID := chi.URLParam(r, "id")
 					// ci-cross-ws: simulate cross-workspace not found
 					if ciID == "ci-cross-ws" {
-						shttp.WriteError(w, http.StatusNotFound, "not_found", "content item not found")
+						shttp.WriteError(w, http.StatusNotFound, "not_found", "elemento de contenido no encontrado")
 						return
 					}
 					// Return empty non-nil slice — contract: [] never null

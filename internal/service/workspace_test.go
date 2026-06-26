@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/Nico-Csk/socialflow/internal/domain"
 	"github.com/Nico-Csk/socialflow/internal/store"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // ============================================================================
@@ -374,8 +374,8 @@ func TestClaimInviteTx_ExhaustedToken_ReturnsError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for exhausted token, got nil")
 	}
-	if !strings.Contains(err.Error(), "expired or exhausted") {
-		t.Errorf("expected 'expired or exhausted' error, got %q", err)
+	if !strings.Contains(err.Error(), ErrMsgInviteUnavailable) {
+		t.Errorf("expected %q error, got %q", ErrMsgInviteUnavailable, err)
 	}
 }
 
@@ -624,8 +624,8 @@ func TestClaimInviteTx_NotFoundToken_ReturnsError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for not-found token, got nil")
 	}
-	if !strings.Contains(err.Error(), "invite not found") {
-		t.Errorf("expected 'invite not found' error, got %q", err)
+	if !strings.Contains(err.Error(), ErrMsgInviteNotFound) {
+		t.Errorf("expected %q error, got %q", ErrMsgInviteNotFound, err)
 	}
 }
 
@@ -699,8 +699,8 @@ func TestClaimInviteTx_ExpiredToken_ReturnsError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for expired token, got nil")
 	}
-	if !strings.Contains(err.Error(), "expired or exhausted") {
-		t.Errorf("expected 'expired or exhausted' error, got %q", err)
+	if !strings.Contains(err.Error(), ErrMsgInviteUnavailable) {
+		t.Errorf("expected %q error, got %q", ErrMsgInviteUnavailable, err)
 	}
 }
 
@@ -743,13 +743,13 @@ func TestClaimInviteTx_UsableAtRead_ExhaustedAtWrite(t *testing.T) {
 	// WHEN the user claims the invite (stale snapshot)
 	_, err := svc.claimInviteTx(context.Background(), spy, "user-1", "tok-stale")
 
-	// THEN the service rejects it with "expired or exhausted" — same contract
+	// THEN the service rejects it with the same unavailable-invite contract
 	// as the pre-check, so callers cannot distinguish read-side vs write-side rejection.
 	if err == nil {
 		t.Fatal("expected error for stale-snapshot exhaustion, got nil")
 	}
-	if !strings.Contains(err.Error(), "expired or exhausted") {
-		t.Errorf("expected 'expired or exhausted' error, got %q", err)
+	if !strings.Contains(err.Error(), ErrMsgInviteUnavailable) {
+		t.Errorf("expected %q error, got %q", ErrMsgInviteUnavailable, err)
 	}
 }
 

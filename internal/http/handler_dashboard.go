@@ -22,7 +22,7 @@ func (h *DashboardHandler) Summary(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.svc.GetSummary(r.Context(), wsID)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "internal", "failed to load dashboard")
+		WriteError(w, http.StatusInternalServerError, "internal", "error al cargar el panel")
 		return
 	}
 	WriteOK(w, result)

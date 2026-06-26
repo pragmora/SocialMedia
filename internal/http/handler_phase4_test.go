@@ -99,9 +99,9 @@ func newPhase4Env(t *testing.T) *phase4Env {
 
 				// Clients
 				r.Route("/clients", func(r chi.Router) {
-			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-					shttp.WriteOK(w, []map[string]any{{"id": "cl-1", "name": "client-a", "social_handles": map[string]string{}}})
-				})
+					r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+						shttp.WriteOK(w, []map[string]any{{"id": "cl-1", "name": "client-a", "social_handles": map[string]string{}}})
+					})
 					r.With(shttp.RequireRole("cm", "admin")).Post("/", func(w http.ResponseWriter, r *http.Request) {
 						// Decode inbound body to echo back social_handles (mimics real handler).
 						var body struct {
@@ -133,213 +133,213 @@ func newPhase4Env(t *testing.T) *phase4Env {
 							}
 							shttp.WriteOK(w, map[string]any{"id": id, "name": "mock", "workspace_id": wsID, "social_handles": map[string]string{}})
 						})
-				r.With(shttp.RequireRole("cm", "admin")).Put("/", func(w http.ResponseWriter, r *http.Request) {
-					// Decode the inbound body to echo back social_handles (mimics real handler).
-					// If the request omits social_handles, the decoded field will be nil
-					// but the mock simulates the store normalization by returning {}.
-					var body struct {
-						SocialHandles json.RawMessage `json:"social_handles"`
-					}
-					// Best-effort decode — body may be empty/missing keys, that's fine.
-					_ = json.NewDecoder(r.Body).Decode(&body)
-					// Normalize nil and JSON "null" to {} — mirrors store guard.
-					if body.SocialHandles == nil || string(body.SocialHandles) == "null" {
-						body.SocialHandles = json.RawMessage(`{}`)
-					}
-					handles := map[string]string{}
-					if body.SocialHandles != nil {
-						_ = json.Unmarshal(body.SocialHandles, &handles)
-					}
-					shttp.WriteOK(w, map[string]any{
-						"id":             "cl-1",
-						"name":           "updated",
-						"social_handles": handles,
-					})
-				})
+						r.With(shttp.RequireRole("cm", "admin")).Put("/", func(w http.ResponseWriter, r *http.Request) {
+							// Decode the inbound body to echo back social_handles (mimics real handler).
+							// If the request omits social_handles, the decoded field will be nil
+							// but the mock simulates the store normalization by returning {}.
+							var body struct {
+								SocialHandles json.RawMessage `json:"social_handles"`
+							}
+							// Best-effort decode — body may be empty/missing keys, that's fine.
+							_ = json.NewDecoder(r.Body).Decode(&body)
+							// Normalize nil and JSON "null" to {} — mirrors store guard.
+							if body.SocialHandles == nil || string(body.SocialHandles) == "null" {
+								body.SocialHandles = json.RawMessage(`{}`)
+							}
+							handles := map[string]string{}
+							if body.SocialHandles != nil {
+								_ = json.Unmarshal(body.SocialHandles, &handles)
+							}
+							shttp.WriteOK(w, map[string]any{
+								"id":             "cl-1",
+								"name":           "updated",
+								"social_handles": handles,
+							})
+						})
 						r.With(shttp.RequireRole("cm", "admin")).Delete("/", func(w http.ResponseWriter, r *http.Request) {
 							shttp.WriteNoContent(w)
 						})
 					})
 				})
 
-			// Content Items
-			r.Route("/content-items", func(r chi.Router) {
-				r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-					// Validate ?status= query param
-					if s := r.URL.Query().Get("status"); s != "" {
-						if !domain.IsValidContentStatus(domain.ContentStatus(s)) {
-							allowed := domain.ValidContentStatuses()
+				// Content Items
+				r.Route("/content-items", func(r chi.Router) {
+					r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+						// Validate ?status= query param
+						if s := r.URL.Query().Get("status"); s != "" {
+							if !domain.IsValidContentStatus(domain.ContentStatus(s)) {
+								allowed := domain.ValidContentStatuses()
+								allowedStrs := make([]string, len(allowed))
+								for i, st := range allowed {
+									allowedStrs[i] = string(st)
+								}
+								shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
+									"estado inválido: "+s,
+									map[string]any{
+										"field":   "status",
+										"value":   s,
+										"allowed": allowedStrs,
+									})
+								return
+							}
+						}
+						shttp.WriteOK(w, []map[string]any{
+							{"id": "ci-1", "title": "test content", "scheduled_date": "2026-06-15"},
+						})
+					})
+					r.With(shttp.RequireRole("cm", "admin")).Post("/", func(w http.ResponseWriter, r *http.Request) {
+						// Parse body to simulate FK guard and enum validation for phase4 tests
+						var body struct {
+							ClientID      *string `json:"client_id"`
+							Platform      string  `json:"platform"`
+							ContentType   string  `json:"content_type"`
+							ScheduledDate *string `json:"scheduled_date"`
+						}
+						_ = json.NewDecoder(r.Body).Decode(&body)
+						// Date format validation: scheduled_date
+						if details := validateMockYYYYMMDD(body.ScheduledDate); details != nil {
+							details["field"] = "scheduled_date"
+							shttp.WriteError(w, http.StatusBadRequest, "invalid_format",
+								"invalid scheduled_date: \""+*body.ScheduledDate+"\" (expected YYYY-MM-DD)",
+								details)
+							return
+						}
+						// Enum validation: platform
+						if !domain.IsValidContentPlatform(domain.ContentPlatform(body.Platform)) {
+							allowed := domain.ValidContentPlatforms()
 							allowedStrs := make([]string, len(allowed))
-							for i, st := range allowed {
-								allowedStrs[i] = string(st)
+							for i, p := range allowed {
+								allowedStrs[i] = string(p)
 							}
 							shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
-								"invalid status: "+s,
+								"valor inválido para platform: \""+body.Platform+"\" (permitidos: [instagram facebook twitter linkedin tiktok youtube other])",
 								map[string]any{
-									"field":   "status",
-									"value":   s,
+									"field":   "platform",
+									"value":   body.Platform,
 									"allowed": allowedStrs,
 								})
 							return
 						}
-					}
-					shttp.WriteOK(w, []map[string]any{
-						{"id": "ci-1", "title": "test content", "scheduled_date": "2026-06-15"},
+						// Enum validation: content_type
+						if !domain.IsValidContentType(domain.ContentType(body.ContentType)) {
+							allowed := domain.ValidContentTypes()
+							allowedStrs := make([]string, len(allowed))
+							for i, ct := range allowed {
+								allowedStrs[i] = string(ct)
+							}
+							shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
+								"invalid content_type: "+body.ContentType,
+								map[string]any{
+									"field":   "content_type",
+									"value":   body.ContentType,
+									"allowed": allowedStrs,
+								})
+							return
+						}
+						if body.ClientID != nil && *body.ClientID == "foreign-client" {
+							shttp.WriteError(w, http.StatusBadRequest, "invalid_reference",
+								"client does not belong to this workspace",
+								map[string]any{"field": "client_id"})
+							return
+						}
+						resp := map[string]any{
+							"id":    "ci-new",
+							"title": "created",
+						}
+						// Conditionally include scheduled_date based on input
+						if body.ScheduledDate != nil && *body.ScheduledDate != "" {
+							resp["scheduled_date"] = *body.ScheduledDate
+						} else {
+							resp["scheduled_date"] = nil
+						}
+						shttp.WriteCreated(w, resp)
 					})
-				})
-			r.With(shttp.RequireRole("cm", "admin")).Post("/", func(w http.ResponseWriter, r *http.Request) {
-				// Parse body to simulate FK guard and enum validation for phase4 tests
-				var body struct {
-					ClientID      *string `json:"client_id"`
-					Platform      string  `json:"platform"`
-					ContentType   string  `json:"content_type"`
-					ScheduledDate *string `json:"scheduled_date"`
-				}
-				_ = json.NewDecoder(r.Body).Decode(&body)
-				// Date format validation: scheduled_date
-				if details := validateMockYYYYMMDD(body.ScheduledDate); details != nil {
-					details["field"] = "scheduled_date"
-					shttp.WriteError(w, http.StatusBadRequest, "invalid_format",
-						"invalid scheduled_date: \""+*body.ScheduledDate+"\" (expected YYYY-MM-DD)",
-						details)
-					return
-				}
-				// Enum validation: platform
-				if !domain.IsValidContentPlatform(domain.ContentPlatform(body.Platform)) {
-					allowed := domain.ValidContentPlatforms()
-					allowedStrs := make([]string, len(allowed))
-					for i, p := range allowed {
-						allowedStrs[i] = string(p)
-					}
-					shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
-						"invalid platform: "+body.Platform,
-						map[string]any{
-							"field":   "platform",
-							"value":   body.Platform,
-							"allowed": allowedStrs,
+					r.Route("/{id}", func(r chi.Router) {
+						r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+							id := chi.URLParam(r, "id")
+							if id == "not-found" || id == "ci-cross-ws" {
+								shttp.WriteError(w, http.StatusNotFound, "not_found", "elemento de contenido no encontrado")
+								return
+							}
+							if id == "ci-no-date" {
+								shttp.WriteOK(w, map[string]any{"id": id, "title": "no date", "status": "draft"})
+								return
+							}
+							// Zero-comment item: detail contract must include comments: []
+							if id == "ci-no-comments" {
+								shttp.WriteOK(w, map[string]any{"id": id, "title": "no comments", "status": "draft", "comments": []map[string]any{}})
+								return
+							}
+							// Item with comments: detail contract must include comments array
+							if id == "ci-with-comments" {
+								shttp.WriteOK(w, map[string]any{
+									"id": id, "title": "with comments", "status": "draft",
+									"comments": []map[string]any{
+										{"id": "cm-1", "body": "hello", "author_id": "user-1", "created_at": "2026-05-01T00:00:00Z", "content_item_id": id},
+									},
+								})
+								return
+							}
+							shttp.WriteOK(w, map[string]any{"id": id, "title": "mock", "status": "draft", "scheduled_date": "2026-06-15"})
 						})
-					return
-				}
-				// Enum validation: content_type
-				if !domain.IsValidContentType(domain.ContentType(body.ContentType)) {
-					allowed := domain.ValidContentTypes()
-					allowedStrs := make([]string, len(allowed))
-					for i, ct := range allowed {
-						allowedStrs[i] = string(ct)
-					}
-					shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
-						"invalid content_type: "+body.ContentType,
-						map[string]any{
-							"field":   "content_type",
-							"value":   body.ContentType,
-							"allowed": allowedStrs,
+						r.With(shttp.RequireRole("cm", "admin")).Put("/", func(w http.ResponseWriter, r *http.Request) {
+							// Validate platform, content_type enums and date format on update
+							var body struct {
+								Platform      string  `json:"platform"`
+								ContentType   string  `json:"content_type"`
+								ScheduledDate *string `json:"scheduled_date"`
+							}
+							_ = json.NewDecoder(r.Body).Decode(&body)
+							// Date format validation: scheduled_date
+							if details := validateMockYYYYMMDD(body.ScheduledDate); details != nil {
+								details["field"] = "scheduled_date"
+								shttp.WriteError(w, http.StatusBadRequest, "invalid_format",
+									"invalid scheduled_date: \""+*body.ScheduledDate+"\" (expected YYYY-MM-DD)",
+									details)
+								return
+							}
+							if !domain.IsValidContentPlatform(domain.ContentPlatform(body.Platform)) {
+								allowed := domain.ValidContentPlatforms()
+								allowedStrs := make([]string, len(allowed))
+								for i, p := range allowed {
+									allowedStrs[i] = string(p)
+								}
+								shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
+									"valor inválido para platform: \""+body.Platform+"\" (permitidos: [instagram facebook twitter linkedin tiktok youtube other])",
+									map[string]any{
+										"field":   "platform",
+										"value":   body.Platform,
+										"allowed": allowedStrs,
+									})
+								return
+							}
+							if !domain.IsValidContentType(domain.ContentType(body.ContentType)) {
+								allowed := domain.ValidContentTypes()
+								allowedStrs := make([]string, len(allowed))
+								for i, ct := range allowed {
+									allowedStrs[i] = string(ct)
+								}
+								shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
+									"invalid content_type: "+body.ContentType,
+									map[string]any{
+										"field":   "content_type",
+										"value":   body.ContentType,
+										"allowed": allowedStrs,
+									})
+								return
+							}
+							resp := map[string]any{
+								"id":    "ci-1",
+								"title": "updated",
+							}
+							// Conditionally include scheduled_date based on input
+							if body.ScheduledDate != nil && *body.ScheduledDate != "" {
+								resp["scheduled_date"] = *body.ScheduledDate
+							} else {
+								resp["scheduled_date"] = nil
+							}
+							shttp.WriteOK(w, resp)
 						})
-					return
-				}
-				if body.ClientID != nil && *body.ClientID == "foreign-client" {
-					shttp.WriteError(w, http.StatusBadRequest, "invalid_reference",
-						"client does not belong to this workspace",
-						map[string]any{"field": "client_id"})
-					return
-				}
-				resp := map[string]any{
-					"id":    "ci-new",
-					"title": "created",
-				}
-				// Conditionally include scheduled_date based on input
-				if body.ScheduledDate != nil && *body.ScheduledDate != "" {
-					resp["scheduled_date"] = *body.ScheduledDate
-				} else {
-					resp["scheduled_date"] = nil
-				}
-				shttp.WriteCreated(w, resp)
-			})
-				r.Route("/{id}", func(r chi.Router) {
-					r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-						id := chi.URLParam(r, "id")
-						if id == "not-found" || id == "ci-cross-ws" {
-							shttp.WriteError(w, http.StatusNotFound, "not_found", "content item not found")
-							return
-						}
-						if id == "ci-no-date" {
-							shttp.WriteOK(w, map[string]any{"id": id, "title": "no date", "status": "draft"})
-							return
-						}
-						// Zero-comment item: detail contract must include comments: []
-						if id == "ci-no-comments" {
-							shttp.WriteOK(w, map[string]any{"id": id, "title": "no comments", "status": "draft", "comments": []map[string]any{}})
-							return
-						}
-						// Item with comments: detail contract must include comments array
-						if id == "ci-with-comments" {
-							shttp.WriteOK(w, map[string]any{
-								"id": id, "title": "with comments", "status": "draft",
-								"comments": []map[string]any{
-									{"id": "cm-1", "body": "hello", "author_id": "user-1", "created_at": "2026-05-01T00:00:00Z", "content_item_id": id},
-								},
-							})
-							return
-						}
-						shttp.WriteOK(w, map[string]any{"id": id, "title": "mock", "status": "draft", "scheduled_date": "2026-06-15"})
-					})
-				r.With(shttp.RequireRole("cm", "admin")).Put("/", func(w http.ResponseWriter, r *http.Request) {
-					// Validate platform, content_type enums and date format on update
-					var body struct {
-						Platform      string  `json:"platform"`
-						ContentType   string  `json:"content_type"`
-						ScheduledDate *string `json:"scheduled_date"`
-					}
-					_ = json.NewDecoder(r.Body).Decode(&body)
-					// Date format validation: scheduled_date
-					if details := validateMockYYYYMMDD(body.ScheduledDate); details != nil {
-						details["field"] = "scheduled_date"
-						shttp.WriteError(w, http.StatusBadRequest, "invalid_format",
-							"invalid scheduled_date: \""+*body.ScheduledDate+"\" (expected YYYY-MM-DD)",
-							details)
-						return
-					}
-					if !domain.IsValidContentPlatform(domain.ContentPlatform(body.Platform)) {
-						allowed := domain.ValidContentPlatforms()
-						allowedStrs := make([]string, len(allowed))
-						for i, p := range allowed {
-							allowedStrs[i] = string(p)
-						}
-						shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
-							"invalid platform: "+body.Platform,
-							map[string]any{
-								"field":   "platform",
-								"value":   body.Platform,
-								"allowed": allowedStrs,
-							})
-						return
-					}
-					if !domain.IsValidContentType(domain.ContentType(body.ContentType)) {
-						allowed := domain.ValidContentTypes()
-						allowedStrs := make([]string, len(allowed))
-						for i, ct := range allowed {
-							allowedStrs[i] = string(ct)
-						}
-						shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
-							"invalid content_type: "+body.ContentType,
-							map[string]any{
-								"field":   "content_type",
-								"value":   body.ContentType,
-								"allowed": allowedStrs,
-							})
-						return
-					}
-					resp := map[string]any{
-						"id":    "ci-1",
-						"title": "updated",
-					}
-					// Conditionally include scheduled_date based on input
-					if body.ScheduledDate != nil && *body.ScheduledDate != "" {
-						resp["scheduled_date"] = *body.ScheduledDate
-					} else {
-						resp["scheduled_date"] = nil
-					}
-					shttp.WriteOK(w, resp)
-				})
 						r.With(shttp.RequireRole("cm", "admin")).Patch("/status", func(w http.ResponseWriter, r *http.Request) {
 							// Parse body to determine requested status
 							var body struct {
@@ -354,7 +354,7 @@ func newPhase4Env(t *testing.T) *phase4Env {
 									allowedStrs[i] = string(s)
 								}
 								shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
-									"invalid status: "+body.Status,
+									"valor inválido para status: \""+body.Status+"\" (permitidos: [draft review approved published archived])",
 									map[string]any{
 										"field":   "status",
 										"value":   body.Status,
@@ -382,7 +382,7 @@ func newPhase4Env(t *testing.T) *phase4Env {
 								// ci-cross-ws belongs to a different workspace → 404.
 								ciID := chi.URLParam(r, "id")
 								if ciID == "ci-cross-ws" {
-									shttp.WriteError(w, http.StatusNotFound, "not_found", "content item not found")
+									shttp.WriteError(w, http.StatusNotFound, "not_found", "elemento de contenido no encontrado")
 									return
 								}
 								// ci-no-comments: content item exists but has zero comments.
@@ -398,7 +398,7 @@ func newPhase4Env(t *testing.T) *phase4Env {
 								// ci-cross-ws belongs to a different workspace → 404.
 								ciID := chi.URLParam(r, "id")
 								if ciID == "ci-cross-ws" {
-									shttp.WriteError(w, http.StatusNotFound, "not_found", "content item not found")
+									shttp.WriteError(w, http.StatusNotFound, "not_found", "elemento de contenido no encontrado")
 									return
 								}
 								shttp.WriteCreated(w, map[string]string{"id": "cm-new", "body": "new comment"})
@@ -417,67 +417,67 @@ func newPhase4Env(t *testing.T) *phase4Env {
 
 					// Nonexistent comment
 					if commentID == "not-found" {
-						shttp.WriteError(w, http.StatusNotFound, "not_found", "comment not found")
+						shttp.WriteError(w, http.StatusNotFound, "not_found", "comentario no encontrado")
 						return
 					}
 					// Comment "cm-1" only exists in workspace ws-1
 					if commentID == "cm-1" && wsID != "ws-1" {
-						shttp.WriteError(w, http.StatusNotFound, "not_found", "comment not found")
+						shttp.WriteError(w, http.StatusNotFound, "not_found", "comentario no encontrado")
 						return
 					}
 					// Comment "cm-1" is authored by user-1 only
 					if commentID == "cm-1" && userID != "user-1" {
-						shttp.WriteError(w, http.StatusNotFound, "not_found", "comment not found")
+						shttp.WriteError(w, http.StatusNotFound, "not_found", "comentario no encontrado")
 						return
 					}
 					shttp.WriteNoContent(w)
 				})
 
-			// Calendar
-			r.Get("/calendar", func(w http.ResponseWriter, r *http.Request) {
-				// Validate ?platform= query param
-				if p := r.URL.Query().Get("platform"); p != "" {
-					if !domain.IsValidContentPlatform(domain.ContentPlatform(p)) {
-						allowed := domain.ValidContentPlatforms()
-						allowedStrs := make([]string, len(allowed))
-						for i, pl := range allowed {
-							allowedStrs[i] = string(pl)
+				// Calendar
+				r.Get("/calendar", func(w http.ResponseWriter, r *http.Request) {
+					// Validate ?platform= query param
+					if p := r.URL.Query().Get("platform"); p != "" {
+						if !domain.IsValidContentPlatform(domain.ContentPlatform(p)) {
+							allowed := domain.ValidContentPlatforms()
+							allowedStrs := make([]string, len(allowed))
+							for i, pl := range allowed {
+								allowedStrs[i] = string(pl)
+							}
+							shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
+								"plataforma inválida: "+p,
+								map[string]any{
+									"field":   "platform",
+									"value":   p,
+									"allowed": allowedStrs,
+								})
+							return
 						}
-						shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
-							"invalid platform: "+p,
-							map[string]any{
-								"field":   "platform",
-								"value":   p,
-								"allowed": allowedStrs,
-							})
-						return
 					}
-				}
-				// Validate ?status= query param
-				if s := r.URL.Query().Get("status"); s != "" {
-					if !domain.IsValidContentStatus(domain.ContentStatus(s)) {
-						allowed := domain.ValidContentStatuses()
-						allowedStrs := make([]string, len(allowed))
-						for i, st := range allowed {
-							allowedStrs[i] = string(st)
+					// Validate ?status= query param
+					if s := r.URL.Query().Get("status"); s != "" {
+						if !domain.IsValidContentStatus(domain.ContentStatus(s)) {
+							allowed := domain.ValidContentStatuses()
+							allowedStrs := make([]string, len(allowed))
+							for i, st := range allowed {
+								allowedStrs[i] = string(st)
+							}
+							shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
+								"estado inválido: "+s,
+								map[string]any{
+									"field":   "status",
+									"value":   s,
+									"allowed": allowedStrs,
+								})
+							return
 						}
-						shttp.WriteError(w, http.StatusBadRequest, "invalid_enum",
-							"invalid status: "+s,
-							map[string]any{
-								"field":   "status",
-								"value":   s,
-								"allowed": allowedStrs,
-							})
-						return
 					}
-				}
-				shttp.WriteOK(w, map[string]any{
-					"items": []map[string]any{
-						{"id": "ci-1", "scheduled_date": "2026-06-15", "title": "test", "status": "draft"},
-					},
-					"counts_by_day": map[string]int{"2026-06-15": 1},
+					shttp.WriteOK(w, map[string]any{
+						"items": []map[string]any{
+							{"id": "ci-1", "scheduled_date": "2026-06-15", "title": "test", "status": "draft"},
+						},
+						"counts_by_day": map[string]int{"2026-06-15": 1},
+					})
 				})
-			})
 
 				// Dashboard
 				r.Get("/dashboard", func(w http.ResponseWriter, r *http.Request) {
@@ -488,98 +488,98 @@ func newPhase4Env(t *testing.T) *phase4Env {
 					})
 				})
 
-			// Tasks
-			r.Route("/tasks", func(r chi.Router) {
-				r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-					shttp.WriteOK(w, []map[string]any{
-						{"id": "t-1", "title": "task", "due_date": "2026-07-01"},
-					})
-				})
-			r.With(shttp.RequireRole("cm", "admin")).Post("/", func(w http.ResponseWriter, r *http.Request) {
-				// Parse body to simulate FK guard for phase4 tests
-				var body struct {
-					ClientID      *string `json:"client_id"`
-					ContentItemID *string `json:"content_item_id"`
-					AssigneeID    *string `json:"assignee_id"`
-					DueDate       *string `json:"due_date"`
-				}
-				_ = json.NewDecoder(r.Body).Decode(&body)
-				// Date format validation: due_date
-				if details := validateMockYYYYMMDD(body.DueDate); details != nil {
-					details["field"] = "due_date"
-					shttp.WriteError(w, http.StatusBadRequest, "invalid_format",
-						"invalid due_date: \""+*body.DueDate+"\" (expected YYYY-MM-DD)",
-						details)
-					return
-				}
-				if body.ClientID != nil && *body.ClientID == "foreign-client" {
-					shttp.WriteError(w, http.StatusBadRequest, "invalid_reference",
-						"client does not belong to this workspace",
-						map[string]any{"field": "client_id"})
-					return
-				}
-				if body.ContentItemID != nil && *body.ContentItemID == "foreign-ci" {
-					shttp.WriteError(w, http.StatusBadRequest, "invalid_reference",
-						"content item does not belong to this workspace",
-						map[string]any{"field": "content_item_id"})
-					return
-				}
-				if body.AssigneeID != nil && *body.AssigneeID == "non-member-user" {
-					shttp.WriteError(w, http.StatusBadRequest, "invalid_reference",
-						"assignee is not a member of this workspace",
-						map[string]any{"field": "assignee_id"})
-					return
-				}
-				resp := map[string]any{
-					"id":    "t-new",
-					"title": "new task",
-				}
-				// Conditionally include due_date based on input
-				if body.DueDate != nil && *body.DueDate != "" {
-					resp["due_date"] = *body.DueDate
-				} else {
-					resp["due_date"] = nil
-				}
-				shttp.WriteCreated(w, resp)
-			})
-				r.Route("/{id}", func(r chi.Router) {
+				// Tasks
+				r.Route("/tasks", func(r chi.Router) {
 					r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-						id := chi.URLParam(r, "id")
-						if id == "not-found" || id == "t-cross-ws" {
-							shttp.WriteError(w, http.StatusNotFound, "not_found", "task not found")
-							return
-						}
-						if id == "t-no-date" {
-							shttp.WriteOK(w, map[string]any{"id": id, "title": "task", "done": false})
-							return
-						}
-						shttp.WriteOK(w, map[string]any{"id": id, "title": "task", "due_date": "2026-07-01"})
+						shttp.WriteOK(w, []map[string]any{
+							{"id": "t-1", "title": "task", "due_date": "2026-07-01"},
+						})
 					})
-				r.With(shttp.RequireRole("cm", "admin")).Put("/", func(w http.ResponseWriter, r *http.Request) {
-					// Validate due_date format on update
-					var body struct {
-						DueDate *string `json:"due_date"`
-					}
-					_ = json.NewDecoder(r.Body).Decode(&body)
-					if details := validateMockYYYYMMDD(body.DueDate); details != nil {
-						details["field"] = "due_date"
-						shttp.WriteError(w, http.StatusBadRequest, "invalid_format",
-							"invalid due_date: \""+*body.DueDate+"\" (expected YYYY-MM-DD)",
-							details)
-						return
-					}
-					resp := map[string]any{
-						"id":   "t-1",
-						"done": "true",
-					}
-					// Conditionally include due_date based on input
-					if body.DueDate != nil && *body.DueDate != "" {
-						resp["due_date"] = *body.DueDate
-					} else {
-						resp["due_date"] = nil
-					}
-					shttp.WriteOK(w, resp)
-				})
+					r.With(shttp.RequireRole("cm", "admin")).Post("/", func(w http.ResponseWriter, r *http.Request) {
+						// Parse body to simulate FK guard for phase4 tests
+						var body struct {
+							ClientID      *string `json:"client_id"`
+							ContentItemID *string `json:"content_item_id"`
+							AssigneeID    *string `json:"assignee_id"`
+							DueDate       *string `json:"due_date"`
+						}
+						_ = json.NewDecoder(r.Body).Decode(&body)
+						// Date format validation: due_date
+						if details := validateMockYYYYMMDD(body.DueDate); details != nil {
+							details["field"] = "due_date"
+							shttp.WriteError(w, http.StatusBadRequest, "invalid_format",
+								"invalid due_date: \""+*body.DueDate+"\" (expected YYYY-MM-DD)",
+								details)
+							return
+						}
+						if body.ClientID != nil && *body.ClientID == "foreign-client" {
+							shttp.WriteError(w, http.StatusBadRequest, "invalid_reference",
+								"client does not belong to this workspace",
+								map[string]any{"field": "client_id"})
+							return
+						}
+						if body.ContentItemID != nil && *body.ContentItemID == "foreign-ci" {
+							shttp.WriteError(w, http.StatusBadRequest, "invalid_reference",
+								"content item does not belong to this workspace",
+								map[string]any{"field": "content_item_id"})
+							return
+						}
+						if body.AssigneeID != nil && *body.AssigneeID == "non-member-user" {
+							shttp.WriteError(w, http.StatusBadRequest, "invalid_reference",
+								"assignee is not a member of this workspace",
+								map[string]any{"field": "assignee_id"})
+							return
+						}
+						resp := map[string]any{
+							"id":    "t-new",
+							"title": "new task",
+						}
+						// Conditionally include due_date based on input
+						if body.DueDate != nil && *body.DueDate != "" {
+							resp["due_date"] = *body.DueDate
+						} else {
+							resp["due_date"] = nil
+						}
+						shttp.WriteCreated(w, resp)
+					})
+					r.Route("/{id}", func(r chi.Router) {
+						r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+							id := chi.URLParam(r, "id")
+							if id == "not-found" || id == "t-cross-ws" {
+								shttp.WriteError(w, http.StatusNotFound, "not_found", "tarea no encontrada")
+								return
+							}
+							if id == "t-no-date" {
+								shttp.WriteOK(w, map[string]any{"id": id, "title": "task", "done": false})
+								return
+							}
+							shttp.WriteOK(w, map[string]any{"id": id, "title": "task", "due_date": "2026-07-01"})
+						})
+						r.With(shttp.RequireRole("cm", "admin")).Put("/", func(w http.ResponseWriter, r *http.Request) {
+							// Validate due_date format on update
+							var body struct {
+								DueDate *string `json:"due_date"`
+							}
+							_ = json.NewDecoder(r.Body).Decode(&body)
+							if details := validateMockYYYYMMDD(body.DueDate); details != nil {
+								details["field"] = "due_date"
+								shttp.WriteError(w, http.StatusBadRequest, "invalid_format",
+									"invalid due_date: \""+*body.DueDate+"\" (expected YYYY-MM-DD)",
+									details)
+								return
+							}
+							resp := map[string]any{
+								"id":   "t-1",
+								"done": "true",
+							}
+							// Conditionally include due_date based on input
+							if body.DueDate != nil && *body.DueDate != "" {
+								resp["due_date"] = *body.DueDate
+							} else {
+								resp["due_date"] = nil
+							}
+							shttp.WriteOK(w, resp)
+						})
 						r.With(shttp.RequireRole("cm", "admin")).Delete("/", func(w http.ResponseWriter, r *http.Request) {
 							shttp.WriteNoContent(w)
 						})
@@ -1285,9 +1285,9 @@ func TestScenario_DASH_Dashboard_ReturnsAggregates(t *testing.T) {
 
 	var body struct {
 		Data struct {
-			StatusCounts  map[string]int `json:"status_counts"`
-			RecentItems   []any          `json:"recent_items"`
-			OverdueTasks  int            `json:"overdue_tasks"`
+			StatusCounts map[string]int `json:"status_counts"`
+			RecentItems  []any          `json:"recent_items"`
+			OverdueTasks int            `json:"overdue_tasks"`
 		} `json:"data"`
 	}
 	json.NewDecoder(rec.Body).Decode(&body)
@@ -3093,6 +3093,9 @@ func TestEnum_Create_InvalidPlatform_Returns400InvalidEnum(t *testing.T) {
 	if errResp.Error.Code != "invalid_enum" {
 		t.Errorf("expected code 'invalid_enum', got %q", errResp.Error.Code)
 	}
+	if errResp.Error.Message != "valor inválido para platform: \"tumblr\" (permitidos: [instagram facebook twitter linkedin tiktok youtube other])" {
+		t.Errorf("expected Spanish message, got %q", errResp.Error.Message)
+	}
 	if errResp.Error.Details.Field != "platform" {
 		t.Errorf("expected details.field='platform', got %q", errResp.Error.Details.Field)
 	}
@@ -3155,12 +3158,16 @@ func TestEnum_Create_EmptyPlatform_Returns400InvalidEnum(t *testing.T) {
 	var errResp struct {
 		Error struct {
 			Code string `json:"code"`
+			Message string `json:"message"`
 		} `json:"error"`
 	}
 	json.NewDecoder(rec.Body).Decode(&errResp)
 
 	if errResp.Error.Code != "invalid_enum" {
 		t.Errorf("expected code 'invalid_enum', got %q", errResp.Error.Code)
+	}
+	if errResp.Error.Message != "valor inválido para platform: \"\" (permitidos: [instagram facebook twitter linkedin tiktok youtube other])" {
+		t.Errorf("expected Spanish message, got %q", errResp.Error.Message)
 	}
 }
 
@@ -3233,6 +3240,7 @@ func TestEnum_TransitionStatus_UnknownStatus_Returns400InvalidEnum(t *testing.T)
 	var errResp struct {
 		Error struct {
 			Code    string `json:"code"`
+			Message string `json:"message"`
 			Details struct {
 				Field string `json:"field"`
 				Value string `json:"value"`
@@ -3243,6 +3251,9 @@ func TestEnum_TransitionStatus_UnknownStatus_Returns400InvalidEnum(t *testing.T)
 
 	if errResp.Error.Code != "invalid_enum" {
 		t.Errorf("expected code 'invalid_enum', got %q", errResp.Error.Code)
+	}
+	if errResp.Error.Message != "valor inválido para status: \"deleted\" (permitidos: [draft review approved published archived])" {
+		t.Errorf("expected Spanish message, got %q", errResp.Error.Message)
 	}
 	if errResp.Error.Details.Field != "status" {
 		t.Errorf("expected details.field='status', got %q", errResp.Error.Details.Field)
@@ -3293,6 +3304,7 @@ func TestEnum_List_InvalidStatus_Returns400InvalidEnum(t *testing.T) {
 	var errResp struct {
 		Error struct {
 			Code    string `json:"code"`
+			Message string `json:"message"`
 			Details struct {
 				Field string `json:"field"`
 				Value string `json:"value"`
@@ -3303,6 +3315,9 @@ func TestEnum_List_InvalidStatus_Returns400InvalidEnum(t *testing.T) {
 
 	if errResp.Error.Code != "invalid_enum" {
 		t.Errorf("expected code 'invalid_enum', got %q", errResp.Error.Code)
+	}
+	if errResp.Error.Message != "estado inválido: deleted" {
+		t.Errorf("expected Spanish message, got %q", errResp.Error.Message)
 	}
 	if errResp.Error.Details.Field != "status" {
 		t.Errorf("expected details.field='status', got %q", errResp.Error.Details.Field)
@@ -3327,12 +3342,16 @@ func TestEnum_Calendar_InvalidPlatform_Returns400InvalidEnum(t *testing.T) {
 	var errResp struct {
 		Error struct {
 			Code string `json:"code"`
+			Message string `json:"message"`
 		} `json:"error"`
 	}
 	json.NewDecoder(rec.Body).Decode(&errResp)
 
 	if errResp.Error.Code != "invalid_enum" {
 		t.Errorf("expected code 'invalid_enum', got %q", errResp.Error.Code)
+	}
+	if errResp.Error.Message != "plataforma inválida: snapchat" {
+		t.Errorf("expected Spanish message, got %q", errResp.Error.Message)
 	}
 }
 
@@ -3351,12 +3370,16 @@ func TestEnum_Calendar_InvalidStatus_Returns400InvalidEnum(t *testing.T) {
 	var errResp struct {
 		Error struct {
 			Code string `json:"code"`
+			Message string `json:"message"`
 		} `json:"error"`
 	}
 	json.NewDecoder(rec.Body).Decode(&errResp)
 
 	if errResp.Error.Code != "invalid_enum" {
 		t.Errorf("expected code 'invalid_enum', got %q", errResp.Error.Code)
+	}
+	if errResp.Error.Message != "estado inválido: removed" {
+		t.Errorf("expected Spanish message, got %q", errResp.Error.Message)
 	}
 }
 

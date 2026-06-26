@@ -40,8 +40,8 @@ func NewAuthService(st *store.Store, pool *pgxpool.Pool, jwtSecret []byte, jwtEx
 // Register creates a user, their personal workspace, and an admin membership —
 // all inside a single database transaction.
 func (s *AuthService) Register(ctx context.Context, creds domain.Credentials) (*domain.User, error) {
-	if creds.Email == "" || creds.Password == "" {
-		return nil, fmt.Errorf("email and password are required")
+	if err := validateRegistrationPreconditions(creds, nil); err != nil {
+		return nil, err
 	}
 
 	hash, err := domain.HashPassword(creds.Password)
@@ -60,8 +60,8 @@ func (s *AuthService) Register(ctx context.Context, creds domain.Credentials) (*
 	if err != nil {
 		return nil, fmt.Errorf("check existing user: %w", err)
 	}
-	if existing != nil {
-		return nil, fmt.Errorf("email already registered")
+	if err := validateRegistrationPreconditions(creds, existing); err != nil {
+		return nil, err
 	}
 
 	name := creds.Name
@@ -92,11 +92,23 @@ func (s *AuthService) Register(ctx context.Context, creds domain.Credentials) (*
 	return user, nil
 }
 
+func validateRegistrationPreconditions(creds domain.Credentials, existing *domain.User) error {
+	if creds.Email == "" || creds.Password == "" {
+		return fmt.Errorf("correo y contraseña son obligatorios")
+	}
+
+	if existing != nil {
+		return fmt.Errorf(ErrMsgEmailAlreadyRegistered)
+	}
+
+	return nil
+}
+
 // Login verifies credentials and returns the signed JWT token string.
 // The caller (HTTP handler) is responsible for setting the cookie.
 func (s *AuthService) Login(ctx context.Context, creds domain.Credentials) (string, *domain.User, error) {
 	if creds.Email == "" || creds.Password == "" {
-		return "", nil, fmt.Errorf("email and password are required")
+		return "", nil, fmt.Errorf("correo y contraseña son obligatorios")
 	}
 
 	user, err := s.store.GetUserByEmail(ctx, s.pool, creds.Email)
@@ -104,11 +116,11 @@ func (s *AuthService) Login(ctx context.Context, creds domain.Credentials) (stri
 		return "", nil, fmt.Errorf("lookup user: %w", err)
 	}
 	if user == nil {
-		return "", nil, fmt.Errorf("invalid email or password")
+		return "", nil, fmt.Errorf("correo o contraseña inválidos")
 	}
 
 	if !domain.CheckPassword(user.PasswordHash, creds.Password) {
-		return "", nil, fmt.Errorf("invalid email or password")
+		return "", nil, fmt.Errorf("correo o contraseña inválidos")
 	}
 
 	// Determine an active workspace — pick the first membership.

@@ -38,7 +38,7 @@ func (h *CalendarHandler) ListByMonth(w http.ResponseWriter, r *http.Request) {
 				allowedStrs[i] = string(pl)
 			}
 			WriteError(w, http.StatusBadRequest, "invalid_enum",
-				"invalid platform: "+p,
+				"plataforma inválida: "+p,
 				map[string]any{
 					"field":   "platform",
 					"value":   p,
@@ -56,7 +56,7 @@ func (h *CalendarHandler) ListByMonth(w http.ResponseWriter, r *http.Request) {
 				allowedStrs[i] = string(st)
 			}
 			WriteError(w, http.StatusBadRequest, "invalid_enum",
-				"invalid status: "+s,
+				"estado inválido: "+s,
 				map[string]any{
 					"field":   "status",
 					"value":   s,

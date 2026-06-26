@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/Nico-Csk/socialflow/internal/domain"
 	"github.com/Nico-Csk/socialflow/internal/service"
+	"github.com/go-chi/chi/v5"
 )
 
 // ContentHandler exposes content item endpoints.
@@ -34,7 +34,7 @@ func (h *ContentHandler) List(w http.ResponseWriter, r *http.Request) {
 				allowedStrs[i] = string(stv)
 			}
 			WriteError(w, http.StatusBadRequest, "invalid_enum",
-				"invalid status: "+s,
+				"estado inválido: "+s,
 				map[string]any{
 					"field":   "status",
 					"value":   s,
@@ -52,7 +52,7 @@ func (h *ContentHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	items, err := h.svc.List(r.Context(), wsID, status, clientID)
 	if err != nil {
-		WriteError(w, http.StatusInternalServerError, "internal", "failed to list content items")
+		WriteError(w, http.StatusInternalServerError, "internal", "error al listar elementos de contenido")
 		return
 	}
 	if items == nil {
@@ -68,7 +68,7 @@ func (h *ContentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var params service.CreateContentParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -111,7 +111,7 @@ func (h *ContentHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	item, err := h.svc.Get(r.Context(), wsID, id)
 	if err != nil {
-		WriteError(w, http.StatusNotFound, "not_found", "content item not found")
+		WriteError(w, http.StatusNotFound, "not_found", "elemento de contenido no encontrado")
 		return
 	}
 	WriteOK(w, item)
@@ -124,7 +124,7 @@ func (h *ContentHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var params service.UpdateContentParams
 	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -155,7 +155,7 @@ func (h *ContentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 		code := http.StatusBadRequest
 		errCode := "bad_request"
-		if err.Error() == "content item not found" {
+		if err.Error() == service.ErrMsgContentItemNotFound {
 			code = http.StatusNotFound
 			errCode = "not_found"
 		}
@@ -174,7 +174,7 @@ func (h *ContentHandler) TransitionStatus(w http.ResponseWriter, r *http.Request
 		Status string `json:"status"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		WriteError(w, http.StatusBadRequest, "bad_request", "invalid request body")
+		WriteError(w, http.StatusBadRequest, "bad_request", "cuerpo de solicitud inválido")
 		return
 	}
 
@@ -201,7 +201,7 @@ func (h *ContentHandler) TransitionStatus(w http.ResponseWriter, r *http.Request
 		}
 		code := http.StatusBadRequest
 		errCode := "bad_request"
-		if err.Error() == "content item not found" {
+		if err.Error() == service.ErrMsgContentItemNotFound {
 			code = http.StatusNotFound
 			errCode = "not_found"
 		}
@@ -210,4 +210,3 @@ func (h *ContentHandler) TransitionStatus(w http.ResponseWriter, r *http.Request
 	}
 	WriteOK(w, item)
 }
-

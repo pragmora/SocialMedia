@@ -67,13 +67,13 @@ func AuthMiddleware(authSvc *service.AuthService) func(http.Handler) http.Handle
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(authSvc.CookieName())
 			if err != nil {
-				WriteError(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+				WriteError(w, http.StatusUnauthorized, "unauthorized", "autenticación requerida")
 				return
 			}
 
 			claims, err := authSvc.ParseToken(cookie.Value)
 			if err != nil {
-				WriteError(w, http.StatusUnauthorized, "unauthorized", "invalid or expired token")
+				WriteError(w, http.StatusUnauthorized, "unauthorized", "token inválido o expirado")
 				return
 			}
 
@@ -99,7 +99,7 @@ func RequireWorkspace() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			wsID := WorkspaceIDFromContext(r.Context())
 			if wsID == "" {
-				WriteError(w, http.StatusBadRequest, "no_workspace", "no active workspace selected")
+				WriteError(w, http.StatusBadRequest, "no_workspace", "no hay espacio de trabajo activo seleccionado")
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -118,7 +118,7 @@ func RequireRole(roles ...domain.Role) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			role := RoleFromContext(r.Context())
 			if role == "" || !allowed[role] {
-				WriteError(w, http.StatusForbidden, "forbidden", "insufficient role")
+				WriteError(w, http.StatusForbidden, "forbidden", "rol insuficiente")
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -170,11 +170,11 @@ func RevalidateWorkspaceMembership(st *store.Store, db store.DB) func(http.Handl
 
 			m, err := st.GetMembership(r.Context(), db, wsID, userID)
 			if err != nil {
-				WriteError(w, http.StatusInternalServerError, "internal", "failed to verify membership")
+				WriteError(w, http.StatusInternalServerError, "internal", "error al verificar membresía")
 				return
 			}
 			if m == nil {
-				WriteError(w, http.StatusNotFound, "not_found", "workspace not found")
+				WriteError(w, http.StatusNotFound, "not_found", "espacio de trabajo no encontrado")
 				return
 			}
 

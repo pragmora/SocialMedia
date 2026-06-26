@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/Nico-Csk/socialflow/internal/domain"
 	"github.com/Nico-Csk/socialflow/internal/store"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ContentService implements content item CRUD, status transitions, and
@@ -37,7 +37,7 @@ type CreateContentParams struct {
 // Create adds a new content item (defaults to draft status).
 func (s *ContentService) Create(ctx context.Context, workspaceID, createdBy string, params CreateContentParams) (*domain.ContentItem, error) {
 	if params.Title == "" {
-		return nil, fmt.Errorf("title is required")
+		return nil, fmt.Errorf("el título es obligatorio")
 	}
 	if err := validateContentPlatform("platform", params.Platform); err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func mapContentFKError(err error) error {
 	if errors.Is(err, store.ErrClientNotInWorkspace) {
 		return &InvalidReferenceError{
 			Field:   "client_id",
-			Message: "client does not belong to this workspace",
+			Message: "el cliente no pertenece a este espacio de trabajo",
 		}
 	}
 	return err
@@ -91,7 +91,7 @@ type UpdateContentParams struct {
 // Update modifies a content item.
 func (s *ContentService) Update(ctx context.Context, workspaceID, id string, params UpdateContentParams) (*domain.ContentItem, error) {
 	if params.Title == "" {
-		return nil, fmt.Errorf("title is required")
+		return nil, fmt.Errorf("el título es obligatorio")
 	}
 	if err := validateContentPlatform("platform", params.Platform); err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func (s *ContentService) Update(ctx context.Context, workspaceID, id string, par
 		return nil, mapContentFKError(err)
 	}
 	if ci == nil {
-		return nil, fmt.Errorf("content item not found")
+		return nil, fmt.Errorf(ErrMsgContentItemNotFound)
 	}
 	return ci, nil
 }
@@ -124,7 +124,7 @@ func (s *ContentService) Get(ctx context.Context, workspaceID, id string) (*doma
 		return nil, err
 	}
 	if ci == nil {
-		return nil, fmt.Errorf("content item not found")
+		return nil, fmt.Errorf(ErrMsgContentItemNotFound)
 	}
 
 	// Optionally load comments
@@ -166,7 +166,7 @@ func (s *ContentService) TransitionStatus(ctx context.Context, workspaceID, id s
 		return nil, err
 	}
 	if ci == nil {
-		return nil, fmt.Errorf("content item not found")
+		return nil, fmt.Errorf(ErrMsgContentItemNotFound)
 	}
 
 	// Validate transition
@@ -188,7 +188,7 @@ func (s *ContentService) TransitionStatus(ctx context.Context, workspaceID, id s
 		return nil, err
 	}
 	if updated == nil {
-		return nil, fmt.Errorf("content item not found")
+		return nil, fmt.Errorf(ErrMsgContentItemNotFound)
 	}
 	return updated, nil
 }
@@ -206,7 +206,7 @@ func (e *InvalidTransitionError) Error() string {
 
 // CalendarParams carries optional filters for the monthly calendar query.
 type CalendarParams struct {
-	Month    string  // YYYY-MM
+	Month    string // YYYY-MM
 	ClientID *string
 	Platform *string
 	Status   *string
@@ -313,7 +313,7 @@ func parseMonthRange(month string) (string, string, error) {
 	}
 	t, err := time.Parse("2006-01", month)
 	if err != nil {
-		return "", "", fmt.Errorf("invalid month format: %s (expected YYYY-MM)", month)
+		return "", "", fmt.Errorf("formato de mes inválido: %s (se espera YYYY-MM)", month)
 	}
 	start := t.Format("2006-01-02")
 	next := t.AddDate(0, 1, 0).Format("2006-01-02")
