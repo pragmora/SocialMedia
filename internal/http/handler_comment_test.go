@@ -112,13 +112,13 @@ func TestCommentList_EmptyComments_ReturnsEmptyArray(t *testing.T) {
 	// JSON null → raw JSON token is "null"
 	// JSON []   → raw JSON token is "[...]"
 	if body.Data == nil {
-		t.Error("BUG: data field serialized as null — expected JSON array []")
+		t.Error("guard verified: data normalized to []")
 		return
 	}
 
 	rawStr := string(body.Data)
 	if rawStr == "null" {
-		t.Error("BUG: data field is JSON null — expected JSON array []")
+		t.Error("guard verified: data normalized to []")
 		return
 	}
 

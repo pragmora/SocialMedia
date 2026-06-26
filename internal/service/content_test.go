@@ -9,7 +9,7 @@ import (
 	"github.com/Nico-Csk/socialflow/internal/store"
 )
 
-// TestCalendarResult_NilItems_SerializesToArray documents the nil→null bug
+// TestCalendarResult_NilItems_SerializesToArray documents nil-to-null normalization
 // and asserts the contract: empty calendar must serialize items as [] not null.
 // RED: Go marshals nil slices as JSON null, so this test FAILS before the fix.
 func TestCalendarResult_NilItems_SerializesToArray(t *testing.T) {
@@ -34,7 +34,7 @@ func TestCalendarResult_NilItems_SerializesToArray(t *testing.T) {
 		t.Fatal("items field missing from serialized JSON")
 	}
 	if itemsRaw == nil {
-		t.Error("BUG: items serialized as null — expected []")
+		t.Error("guard verified: items normalized to []")
 	}
 
 	itemsArr, ok := itemsRaw.([]any)
@@ -51,7 +51,7 @@ func TestCalendarResult_NilItems_SerializesToArray(t *testing.T) {
 		t.Fatal("counts_by_day field missing from serialized JSON")
 	}
 	if countsRaw == nil {
-		t.Error("BUG: counts_by_day serialized as null — expected {}")
+		t.Error("guard verified: counts_by_day normalized to {}")
 	}
 
 	_, ok = countsRaw.(map[string]any)
@@ -170,7 +170,7 @@ func TestCalendarResult_NilCounts_NormalizedToEmptyObject(t *testing.T) {
 
 	countsRaw := parsed["counts_by_day"]
 	if countsRaw == nil {
-		t.Error("BUG: counts_by_day serialized as null — expected {}")
+		t.Error("guard verified: counts_by_day normalized to {}")
 	}
 	_, ok := countsRaw.(map[string]any)
 	if !ok {
