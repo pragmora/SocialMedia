@@ -73,6 +73,72 @@ func scopedGoFiles(root string) []string {
 // scopedCommandPattern matches Go commands that use explicit package patterns.
 var scopedCommandPattern = regexp.MustCompile(`go\s+(test|vet|build)\s+.*\./cmd/\.\.\.\s+\./internal/\.\.\.`)
 
+// makefileTargetPattern matches a Makefile .PHONY target declaration.
+var makefileTargetPattern = regexp.MustCompile(`\.PHONY:\s*(.*)`)
+
+// TestMakefileHasScopedTargets verifies the root Makefile defines scoped
+// Go test targets (spec R1) and does not use wildcard ./... patterns.
+// Required targets: test, vet, cover, cover-html, race, test-verbose.
+func TestMakefileHasScopedTargets(t *testing.T) {
+	root := projectRoot(t)
+	makefilePath := filepath.Join(root, "Makefile")
+	lines := mustReadFile(t, makefilePath)
+
+	requiredTargets := map[string]bool{
+		"test":         false,
+		"vet":          false,
+		"cover":        false,
+		"cover-html":   false,
+		"race":         false,
+		"test-verbose": false,
+	}
+
+	t.Run("required phony targets exist", func(t *testing.T) {
+		for _, line := range lines {
+			matches := makefileTargetPattern.FindStringSubmatch(line)
+			if matches == nil {
+				continue
+			}
+			for _, field := range strings.Fields(matches[1]) {
+				if _, ok := requiredTargets[field]; ok {
+					requiredTargets[field] = true
+				}
+			}
+		}
+		for target, found := range requiredTargets {
+			if !found {
+				t.Errorf("required .PHONY target %q not declared in Makefile", target)
+			}
+		}
+	})
+
+	t.Run("no wildcard go commands in recipes", func(t *testing.T) {
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				continue // skip blank and comment lines
+			}
+			if wildcardPattern.MatchString(line) {
+				t.Errorf("Makefile line %d: contains wildcard ./... pattern → %q",
+					i+1, trimmed)
+			}
+		}
+	})
+
+	t.Run("scoped pattern present", func(t *testing.T) {
+		foundScoped := false
+		for _, line := range lines {
+			if strings.Contains(line, "./cmd/... ./internal/...") {
+				foundScoped = true
+				break
+			}
+		}
+		if !foundScoped {
+			t.Error("Makefile does not contain scoped pattern `./cmd/... ./internal/...`")
+		}
+	})
+}
+
 // --- Tests ---------------------------------------------------------------
 
 // TestGitignoreContainsNodeModules verifies the root .gitignore includes a
