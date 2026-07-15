@@ -18,16 +18,13 @@ export default function WorkspaceSwitcher() {
   useEffect(() => {
     async function load() {
       const res = await apiClient.get<Workspace[]>('/workspaces')
-      if (res.data) {
-        setWorkspaces(res.data)
-      }
+      if (res.data) setWorkspaces(res.data)
     }
     load()
   }, [])
 
   const currentWs = workspaces.find((w) => w.id === user?.active_workspace_id)
 
-  // Close dropdown on Escape key (document-level listener since overlay div is not focusable)
   useEffect(() => {
     if (!open) return
     function handleKeyDown(e: KeyboardEvent) {
@@ -38,10 +35,7 @@ export default function WorkspaceSwitcher() {
   }, [open])
 
   async function handleSwitch(wsId: string) {
-    if (wsId === user?.active_workspace_id) {
-      setOpen(false)
-      return
-    }
+    if (wsId === user?.active_workspace_id) { setOpen(false); return }
     setSwitching(true)
     await switchWorkspace(wsId)
     setSwitching(false)
@@ -55,48 +49,44 @@ export default function WorkspaceSwitcher() {
       <button
         onClick={() => setOpen(!open)}
         disabled={switching}
-        className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+        className="flex items-center gap-1.5 w-full rounded-lg border border-slate-800/60 bg-slate-900/50 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800/60 hover:text-slate-200 transition-all disabled:opacity-50"
       >
-        <span className="max-w-[160px] truncate">
-          {currentWs ? currentWs.name : t('workspace.noWorkspace')}
-        </span>
-        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+        <span className="truncate flex-1 text-left">{currentWs ? currentWs.name : t('workspace.noWorkspace')}</span>
+        <svg className={`w-3 h-3 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-1 w-56 rounded-lg border border-gray-200 bg-white shadow-lg z-50">
-          <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase">{t('workspace.switchLabel')}</div>
-          {workspaces.map((ws) => (
-            <button
-              key={ws.id}
-              onClick={() => handleSwitch(ws.id)}
-              aria-label={ws.id === user.active_workspace_id ? `${ws.name} (${t('workspace.active')})` : ws.name}
-              className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
-                ws.id === user.active_workspace_id
-                  ? 'font-medium text-socialflow-600 bg-socialflow-50'
-                  : 'text-gray-700'
-              }`}
-            >
-              {ws.name}
-              {ws.id === user.active_workspace_id && (
-                <span className="ml-2 text-xs text-socialflow-500"> {'('}{t('workspace.active')}{')'}</span>
-              )}
-            </button>
-          ))}
-          {workspaces.length === 0 && (
-            <p className="px-4 py-3 text-sm text-gray-400">{t('workspace.empty')}</p>
-          )}
-        </div>
-      )}
-
-      {/* Click-outside closer (Escape handled via useEffect document listener) */}
-      {open && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setOpen(false)}
-        />
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 right-0 mt-1.5 rounded-xl border border-slate-800/60 bg-slate-900 shadow-xl shadow-black/20 z-50 overflow-hidden">
+            <div className="px-3.5 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{t('workspace.switchLabel')}</div>
+            {workspaces.map((ws) => (
+              <button
+                key={ws.id}
+                onClick={() => handleSwitch(ws.id)}
+                aria-label={ws.id === user.active_workspace_id ? `${ws.name} (${t('workspace.active')})` : ws.name}
+                className={`w-full text-left px-3.5 py-2 text-xs transition-colors ${
+                  ws.id === user.active_workspace_id
+                    ? 'font-semibold text-socialflow-300 bg-socialflow-600/10'
+                    : 'text-slate-300 hover:bg-slate-800/60'
+                }`}
+              >
+                {ws.name}
+                {ws.id === user.active_workspace_id && (
+                  <span className="ml-2 text-[10px] text-socialflow-500">({t('workspace.active')})</span>
+                )}
+              </button>
+            ))}
+            {workspaces.length === 0 && (
+              <p className="px-3.5 py-3 text-xs text-slate-500">{t('workspace.empty')}</p>
+            )}
+          </div>
+        </>
       )}
     </div>
   )

@@ -3,14 +3,20 @@
     "title": "SocialFlow",
     "tagline": "Gestión de flujos de contenido para community managers.",
     "loading": "Cargando...",
-    "soon": "pronto"
+    "soon": "pronto",
+    "menu": "Menú",
+    "close": "Cerrar"
   },
   "nav": {
     "dashboard": "Panel",
     "content": "Contenido",
+    "projects": "Proyectos",
+    "members": "Miembros",
     "clients": "Clientes",
     "calendar": "Calendario",
-    "tasks": "Tareas"
+    "tasks": "Tareas",
+    "management": "Gestión",
+    "administration": "Administración"
   },
   "auth": {
     "loginTitle": "Iniciar sesión en SocialFlow",
@@ -100,7 +106,15 @@
       "type": "Tipo",
       "client": "Cliente",
       "scheduledDate": "Fecha programada",
+      "startDate": "Fecha inicial",
+      "endDate": "Fecha final",
+      "project": "Proyecto",
+      "assignee": "Asignado a",
+      "noProject": "— Sin proyecto —",
+      "allProjects": "Todos los proyectos",
+      "noProject": "Sin proyecto",
       "noClient": "— Sin cliente —",
+      "noAssignee": "— Sin asignar —",
       "titlePlaceholder": "ej. Campaña de verano",
       "descriptionPlaceholder": "Breve descripción del contenido..."
     },
@@ -109,11 +123,18 @@
       "status": "Estado",
       "platform": "Plataforma",
       "scheduled": "Programado",
+      "dates": "Fechas",
+      "assignee": "Asignado",
       "actions": "Acciones"
     },
     "edit": "Editar",
     "moveTo": "Mover a:",
     "scheduled": "Programado:",
+    "startDate": "Inicio:",
+    "endDate": "Fin:",
+    "assignedToMe": "Asignado a mí",
+    "assignedTo": "Asignado a:",
+    "unassigned": "Sin asignar",
     "comments": "Comentarios",
     "commentsCount": "Comentarios ({{count}})",
     "writeComment": "Escribí un comentario...",
@@ -122,7 +143,16 @@
     "noComments": "Sin comentarios aún.",
     "delete": "Eliminar",
     "detailsAndComments": "Detalles y comentarios →",
-    "detailsAndCommentsShort": "Detalles y comentarios →"
+    "detailsAndCommentsShort": "Detalles y comentarios →",
+    "tasks": "Tareas",
+    "tasksCount": "Tareas ({{count}})",
+    "noTasks": "Sin tareas vinculadas.",
+    "newTask": "Nueva tarea",
+    "taskTitle": "Título de la tarea",
+    "addTask": "Agregar tarea",
+    "creatingTask": "Creando...",
+    "taskDone": "Completada",
+    "taskPending": "Pendiente"
   },
   "calendar": {
     "title": "Calendario",
@@ -160,6 +190,8 @@
     "form": {
       "title": "Título *",
       "description": "Descripción",
+      "assignee": "Responsable",
+      "noAssignee": "— Sin asignar —",
       "dueDate": "Fecha límite",
       "markDone": "Marcar como completada",
       "contentItemId": "ID de contenido (opcional)",
@@ -228,6 +260,57 @@
     "video": "Video",
     "carousel": "Carrusel",
     "other": "Otro"
+  },
+  "members": {
+    "title": "Miembros",
+    "inviteTitle": "Invitación",
+    "createInvite": "Generar link de invitación",
+    "creating": "Generando...",
+    "copied": "¡Copiado!",
+    "you": "vos",
+    "remove": "Eliminar",
+    "addMember": "Agregar miembro",
+    "selectUser": "Seleccionar usuario",
+    "selectUserPlaceholder": "Elegí un usuario...",
+    "noAvailableUsers": "No hay usuarios disponibles para agregar.",
+    "selectRole": "Seleccionar rol",
+    "adding": "Agregando...",
+    "userNotFound": "No hay usuario registrado con ese email",
+    "alreadyMember": "Ya es miembro de este workspace",
+    "memberAdded": "Miembro agregado correctamente",
+    "cancel": "Cancelar",
+    "confirm": "Agregar",
+    "table": {
+      "user": "Usuario",
+      "role": "Rol",
+      "joined": "Se unió",
+      "actions": "Acciones"
+    }
+  },
+  "projects": {
+    "title": "Proyectos",
+    "newProject": "+ Nuevo proyecto",
+    "editProject": "Editar proyecto",
+    "newProjectHeading": "Nuevo proyecto",
+    "loadingProjects": "Cargando proyectos...",
+    "noProjects": "Sin proyectos aún. Creá tu primer proyecto para empezar.",
+    "backToList": "← Volver a proyectos",
+    "saving": "Guardando...",
+    "saveChanges": "Guardar cambios",
+    "createProject": "Crear proyecto",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "form": {
+      "name": "Nombre *",
+      "description": "Descripción",
+      "startDate": "Fecha inicio",
+      "endDate": "Fecha fin",
+      "namePlaceholder": "ej. Campaña verano 2026",
+      "assignee": "Responsable",
+      "noAssignee": "— Sin asignar —",
+      "descriptionPlaceholder": "Descripción del proyecto..."
+    }
   },
   "role": {
     "admin": "Administrador",

@@ -47,6 +47,7 @@ export function getContentTypeLabel(contentType: string): string {
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
+  cm: 'Community Manager',
   editor: 'Editor',
   viewer: 'Observador',
 }

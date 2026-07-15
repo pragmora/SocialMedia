@@ -28,7 +28,6 @@ function partsToMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`
 }
 
-// ── Types ───────────────────────────────────────────────────────────
 interface ContentItem {
   id: string
   title: string
@@ -43,27 +42,20 @@ interface CalendarResult {
   counts_by_day: Record<string, number>
 }
 
-// ── Skeleton Grid ───────────────────────────────────────────────────
 function SkeletonGrid() {
-  const cells = Array.from({ length: 42 }) // 6 rows × 7 columns
+  const cells = Array.from({ length: 42 })
   return (
-    <div className="flex-1 bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+    <div className="flex-1 bg-white rounded-2xl border border-slate-200/80 overflow-hidden">
+      <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-200">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-          <div key={d} className="px-2 py-2 text-center text-xs font-medium text-gray-500">
-            {d.slice(0, 3)}
-          </div>
+          <div key={d} className="px-2 py-2 text-center text-xs font-medium text-slate-500">{d.slice(0, 3)}</div>
         ))}
       </div>
       <div className="grid grid-cols-7">
         {cells.map((_, i) => (
-          <div
-            key={i}
-            className="min-h-[80px] border-b border-r border-gray-100 p-1.5 animate-pulse"
-            data-testid="skeleton-cell"
-          >
-            <div className="w-6 h-6 rounded-full bg-gray-200 mb-1" />
-            <div className="w-8 h-3 rounded bg-gray-100" />
+          <div key={i} className="min-h-[80px] border-b border-r border-slate-100 p-1.5 animate-pulse">
+            <div className="w-6 h-6 rounded-full bg-slate-200 mb-1" />
+            <div className="w-8 h-3 rounded bg-slate-100" />
           </div>
         ))}
       </div>
@@ -71,7 +63,6 @@ function SkeletonGrid() {
   )
 }
 
-// ── Main Component ───────────────────────────────────────────────────
 export default function Calendar() {
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -80,22 +71,17 @@ export default function Calendar() {
   const [error, setError] = useState('')
   const [pendingTransitions, setPendingTransitions] = useState<Record<string, string>>({})
 
-  // Read params from URL
   const month = searchParams.get('month') || getCurrentMonth()
   const status = searchParams.get('status') ?? ''
   const platform = searchParams.get('platform') ?? ''
   const day = searchParams.get('day') ?? ''
-
-  // Active day — always show if day param exists (sidebar persists across month nav per spec S5/S6)
   const activeDay = day
-
   const hasActiveFilters = (status && status !== 'all') || (platform && platform !== 'all')
 
   const { year, month: monthNum } = monthToParts(month)
   const today = new Date()
   const todayStr = today.toISOString().slice(0, 10)
   const currentMonthStr = getCurrentMonth()
-
   const monthName = new Date(year, monthNum - 1).toLocaleString('es', { month: 'long' })
 
   const DAYS = [t('calendar.days.sun'), t('calendar.days.mon'), t('calendar.days.mar'), t('calendar.days.mi\u00E9'), t('calendar.days.jue'), t('calendar.days.vie'), t('calendar.days.s\u00E1b')]
@@ -108,89 +94,48 @@ export default function Calendar() {
     if (res.error) {
       setError(res.error.message)
     } else if (res.data) {
-      setData({
-        ...res.data,
-        items: res.data.items ?? [],
-        counts_by_day: res.data.counts_by_day ?? {},
-      })
+      setData({ ...res.data, items: res.data.items ?? [], counts_by_day: res.data.counts_by_day ?? {} })
     } else {
       setData(null)
     }
     setLoading(false)
   }, [month, status, platform])
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadMonth()
-  }, [loadMonth])
-
-  // ── Sidebar transition handler ──────────────────────────────────
+  useEffect(() => { loadMonth() }, [loadMonth])
 
   async function handleSidebarTransition(itemId: string, nextStatus: string) {
-    // Optimistic local update
     setData((prev) => {
       if (!prev) return prev
-      return {
-        ...prev,
-        items: prev.items.map((item) =>
-          item.id === itemId ? { ...item, status: nextStatus } : item,
-        ),
-      }
+      return { ...prev, items: prev.items.map((item) => item.id === itemId ? { ...item, status: nextStatus } : item) }
     })
-
-    // Mark as pending to disable buttons
     setPendingTransitions((prev) => ({ ...prev, [itemId]: nextStatus }))
-
     const res = await apiClient.patch<ContentItem>(`/content-items/${itemId}/status`, { status: nextStatus })
-
-    // Clear pending regardless of outcome
-    setPendingTransitions((prev) => {
-      const next = { ...prev }
-      delete next[itemId]
-      return next
-    })
-
+    setPendingTransitions((prev) => { const next = { ...prev }; delete next[itemId]; return next })
     if (res.error) {
       setError(res.error.message)
-      // Refetch full month data to restore canonical state
       await loadMonth()
     } else if (res.data) {
-      // Update with server response to ensure consistency
       setData((prev) => {
         if (!prev) return prev
-        return {
-          ...prev,
-          items: prev.items.map((item) =>
-            item.id === itemId ? { ...item, status: res.data!.status } : item,
-          ),
-        }
+        return { ...prev, items: prev.items.map((item) => item.id === itemId ? { ...item, status: res.data!.status } : item) }
       })
     }
   }
 
-  // ── Navigation helpers ──────────────────────────────────────────
-
   function navToMonth(newMonth: string) {
     const newParams = new URLSearchParams(searchParams)
     newParams.set('month', newMonth)
-    // Keep day param — sidebar persists across month navigation (spec S5/S6)
     setSearchParams(newParams, { replace: true })
   }
 
   function prevMonth() {
-    if (monthNum === 1) {
-      navToMonth(partsToMonth(year - 1, 12))
-    } else {
-      navToMonth(partsToMonth(year, monthNum - 1))
-    }
+    if (monthNum === 1) navToMonth(partsToMonth(year - 1, 12))
+    else navToMonth(partsToMonth(year, monthNum - 1))
   }
 
   function nextMonth() {
-    if (monthNum === 12) {
-      navToMonth(partsToMonth(year + 1, 1))
-    } else {
-      navToMonth(partsToMonth(year, monthNum + 1))
-    }
+    if (monthNum === 12) navToMonth(partsToMonth(year + 1, 1))
+    else navToMonth(partsToMonth(year, monthNum + 1))
   }
 
   function goToToday() {
@@ -199,25 +144,17 @@ export default function Calendar() {
     setSearchParams(newParams, { replace: true })
   }
 
-  // ── Filter helpers ───────────────────────────────────────────────
-
   function setPlatformFilter(value: string) {
     const newParams = new URLSearchParams(searchParams)
-    if (value === 'all') {
-      newParams.delete('platform')
-    } else {
-      newParams.set('platform', value)
-    }
+    if (value === 'all') newParams.delete('platform')
+    else newParams.set('platform', value)
     setSearchParams(newParams, { replace: true })
   }
 
   function setStatusFilter(value: string) {
     const newParams = new URLSearchParams(searchParams)
-    if (value === 'all') {
-      newParams.delete('status')
-    } else {
-      newParams.set('status', value)
-    }
+    if (value === 'all') newParams.delete('status')
+    else newParams.set('status', value)
     setSearchParams(newParams, { replace: true })
   }
 
@@ -227,11 +164,9 @@ export default function Calendar() {
     setSearchParams(newParams, { replace: true })
   }
 
-  // ── Build calendar grid ──────────────────────────────────────────
-
   const firstDay = new Date(year, monthNum - 1, 1)
   const lastDay = new Date(year, monthNum, 0)
-  const startDayOfWeek = firstDay.getDay() // 0=Sun
+  const startDayOfWeek = firstDay.getDay()
   const totalDays = lastDay.getDate()
 
   const days: (number | null)[] = []
@@ -251,39 +186,27 @@ export default function Calendar() {
     })
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">{t('calendar.title')}</h2>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={prevMonth}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-          >
+    <div className="animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+        <h2 className="text-2xl font-bold text-slate-900">{t('calendar.title')}</h2>
+        <div className="flex items-center gap-2">
+          <button onClick={prevMonth} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-white transition-all active:scale-[0.97]">
             {t('calendar.prev')}
           </button>
-          <span className="text-lg font-medium text-gray-900 min-w-[160px] text-center">
+          <span className="text-lg font-bold text-slate-900 min-w-[140px] text-center font-heading">
             {monthName} {year}
           </span>
-          <button
-            onClick={nextMonth}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-          >
+          <button onClick={nextMonth} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-white transition-all active:scale-[0.97]">
             {t('calendar.next')}
           </button>
-          <button
-            onClick={goToToday}
-            className="rounded-lg border border-socialflow-300 px-3 py-1.5 text-sm font-medium text-socialflow-700 hover:bg-socialflow-50 transition-colors"
-          >
+          <button onClick={goToToday} className="rounded-lg bg-socialflow-50 border border-socialflow-200 px-3 py-1.5 text-sm font-medium text-socialflow-700 hover:bg-socialflow-100 transition-all active:scale-[0.97]">
             {t('calendar.today')}
           </button>
         </div>
       </div>
 
-      {/* Filter controls */}
-      <div className="flex items-center justify-between mb-3">
-        {/* Status tabs */}
-        <div className="flex gap-1">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        <div className="flex gap-1.5 flex-wrap">
           {STATUS_OPTIONS.map((s) => {
             const active = (s === 'all' && !status) || status === s
             return (
@@ -291,96 +214,81 @@ export default function Calendar() {
                 type="button"
                 key={s}
                 onClick={() => setStatusFilter(s)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                   active
-                    ? 'bg-socialflow-100 text-socialflow-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-socialflow-100 text-socialflow-700 shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-              {s === 'all' ? t('status.all') : getStatusLabel(s)}
+                {s === 'all' ? t('status.all') : getStatusLabel(s)}
               </button>
             )
           })}
         </div>
-
-        {/* Platform select */}
-        <div className="flex items-center gap-2">
-          <select
-            value={platform || 'all'}
-            onChange={(e) => setPlatformFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-socialflow-300 focus:border-socialflow-400"
-          >
-            {PLATFORM_OPTIONS.map((p) => (
-              <option key={p} value={p}>
-                {p === 'all' ? t('platform.all') : getPlatformLabel(p)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={platform || 'all'}
+          onChange={(e) => setPlatformFilter(e.target.value)}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-socialflow-300"
+        >
+          {PLATFORM_OPTIONS.map((p) => (
+            <option key={p} value={p}>
+              {p === 'all' ? t('platform.all') : getPlatformLabel(p)}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Active filter badges */}
       {hasActiveFilters && (
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs text-gray-500">{t('calendar.activeFilters')}</span>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs text-slate-400">{t('calendar.activeFilters')}</span>
           {status && status !== 'all' && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-socialflow-100 px-2 py-0.5 text-xs font-medium text-socialflow-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-socialflow-100 px-2 py-0.5 text-[10px] font-medium text-socialflow-700">
               {getStatusLabel(status)}
             </span>
           )}
           {platform && platform !== 'all' && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-socialflow-100 px-2 py-0.5 text-xs font-medium text-socialflow-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-socialflow-100 px-2 py-0.5 text-[10px] font-medium text-socialflow-700">
               {getPlatformLabel(platform)}
             </span>
           )}
         </div>
       )}
 
-      {/* Error banner */}
       {error && (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
           {error}
         </div>
       )}
 
-      {/* Loading skeleton */}
       {loading ? (
-        <div className="flex gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           <SkeletonGrid />
-          <div className="w-72 flex-shrink-0">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="w-full lg:w-72 shrink-0">
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4">
               <div className="animate-pulse space-y-2">
-                <div className="h-4 w-24 bg-gray-200 rounded" />
-                <div className="h-3 w-32 bg-gray-100 rounded" />
+                <div className="h-4 w-24 bg-slate-200 rounded" />
+                <div className="h-3 w-32 bg-slate-100 rounded" />
               </div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="flex gap-6">
-          {/* Calendar grid */}
+        <div className="flex flex-col lg:flex-row gap-6">
           {isEmptyMonth ? (
-            <div className="flex-1 bg-white rounded-lg border border-dashed border-gray-300 p-12 text-center">
-              <p className="text-gray-500">{t('calendar.noContentMonth')}</p>
+            <div className="flex-1 bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+              <p className="text-slate-500">{t('calendar.noContentMonth')}</p>
             </div>
           ) : isFilteredEmpty ? (
-            <div className="flex-1 bg-white rounded-lg border border-dashed border-gray-300 p-12 text-center">
-              <p className="text-gray-500">
-                {t('calendar.noContentFilters')}
-              </p>
+            <div className="flex-1 bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+              <p className="text-slate-500">{t('calendar.noContentFilters')}</p>
             </div>
           ) : (
-            <div className="flex-1 bg-white rounded-lg border border-gray-200 overflow-hidden">
-              {/* Day-of-week headers */}
-              <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
+            <div className="flex-1 bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+              <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-200">
                 {DAYS.map((d) => (
-                  <div key={d} className="px-2 py-2 text-center text-xs font-medium text-gray-500">
-                    {d}
-                  </div>
+                  <div key={d} className="px-2 py-2 text-center text-xs font-medium text-slate-500">{d}</div>
                 ))}
               </div>
-
-              {/* Day cells */}
               <div className="grid grid-cols-7">
                 {days.map((dayNum, i) => {
                   const dateStr = dayNum
@@ -395,8 +303,8 @@ export default function Calendar() {
                       key={i}
                       data-testid={dateStr ? `day-cell-${dateStr}` : 'day-cell-empty'}
                       data-selected={isSelected ? 'true' : 'false'}
-                      className={`min-h-[80px] border-b border-r border-gray-100 p-1.5 ${
-                        dayNum ? 'cursor-pointer hover:bg-gray-50' : ''
+                      className={`min-h-[70px] sm:min-h-[90px] border-b border-r border-slate-100 p-1.5 ${
+                        dayNum ? 'cursor-pointer hover:bg-slate-50' : ''
                       } ${isSelected ? 'bg-socialflow-50 ring-1 ring-inset ring-socialflow-300' : ''}`}
                       onClick={() => dayNum && selectDay(dateStr!)}
                     >
@@ -404,15 +312,13 @@ export default function Calendar() {
                         <>
                           <span
                             className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-                              isToday
-                                ? 'bg-socialflow-600 text-white'
-                                : 'text-gray-600'
+                              isToday ? 'bg-socialflow-600 text-white' : 'text-slate-600'
                             }`}
                           >
                             {dayNum}
                           </span>
                           {count > 0 && (
-                            <div className="mt-1">
+                            <div className="mt-0.5">
                               <span className="inline-flex items-center rounded-full bg-socialflow-100 px-1.5 py-0.5 text-[10px] font-medium text-socialflow-700">
                                 {count}
                               </span>
@@ -427,43 +333,32 @@ export default function Calendar() {
             </div>
           )}
 
-          {/* Selected date sidebar — always visible */}
-          <div className="w-72 flex-shrink-0">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="w-full lg:w-72 shrink-0">
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
               {activeDay ? (
                 <>
-                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                    {activeDay}
-                  </h3>
+                  <h3 className="text-sm font-bold text-slate-900 mb-3">{activeDay}</h3>
                   {selectedItems.length === 0 ? (
-                    <p className="text-xs text-gray-400">{t('calendar.noContentDay')}</p>
+                    <p className="text-xs text-slate-400">{t('calendar.noContentDay')}</p>
                   ) : (
                     <div className="space-y-2">
                       {selectedItems.map((item) => {
                         const isPending = pendingTransitions[item.id] !== undefined
                         const allowedNext = NEXT_STATUS[item.status] ?? []
                         return (
-                          <div
-                            key={item.id}
-                            className="rounded-lg border border-gray-100 px-3 py-2"
-                          >
-                            {/* Title as separate link */}
+                          <div key={item.id} className="rounded-xl border border-slate-100 px-3 py-2.5">
                             <Link
                               to={`/dashboard/content-items/${item.id}`}
-                              className="text-sm font-medium text-gray-900 truncate hover:text-socialflow-600 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-socialflow-300 focus-visible:ring-offset-1 rounded"
+                              className="text-sm font-semibold text-slate-900 truncate hover:text-socialflow-600 block rounded"
                             >
                               {item.title}
                             </Link>
-
-                            {/* Status badge and platform */}
                             <div className="flex gap-2 mt-1">
                               <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[item.status] ?? 'bg-gray-100 text-gray-700'}`}>
                                 {getStatusLabel(item.status)}
                               </span>
-                              <span className="text-[10px] text-gray-400">{getPlatformLabel(item.platform)}</span>
+                              <span className="text-[10px] text-slate-400">{getPlatformLabel(item.platform)}</span>
                             </div>
-
-                            {/* Inline transition buttons */}
                             {allowedNext.length > 0 && !isPending && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {allowedNext.map((next) => {
@@ -474,7 +369,7 @@ export default function Calendar() {
                                       onClick={() => handleSidebarTransition(item.id, next)}
                                       disabled={isPending}
                                       aria-label={t('calendar.ariaMoveTo', { status: nextLabel })}
-                                      className="rounded px-2 py-0.5 text-[10px] font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-socialflow-300 focus-visible:ring-offset-1"
+                                      className="rounded px-2 py-0.5 text-[10px] font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
                                     >
                                       {nextLabel}
                                     </button>
@@ -482,30 +377,18 @@ export default function Calendar() {
                                 })}
                               </div>
                             )}
-
-                            {/* Pending transition indicator */}
                             {isPending && (
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {allowedNext.map((next) => {
-                                  const nextLabel = getStatusLabel(next)
-                                  return (
-                                    <button
-                                      key={next}
-                                      disabled
-                                      aria-label={t('calendar.ariaMoveTo', { status: nextLabel })}
-                                      className="rounded px-2 py-0.5 text-[10px] font-medium border border-gray-200 text-gray-400 opacity-50 cursor-not-allowed"
-                                    >
-                                      {nextLabel}
-                                    </button>
-                                  )
-                                })}
+                                {allowedNext.map((next) => (
+                                  <button key={next} disabled className="rounded px-2 py-0.5 text-[10px] font-medium border border-slate-200 text-slate-400 opacity-50">
+                                    {getStatusLabel(next)}
+                                  </button>
+                                ))}
                               </div>
                             )}
-
-                            {/* Explicit Details & Comments link */}
                             <Link
                               to={`/dashboard/content-items/${item.id}`}
-                              className="text-[10px] text-socialflow-600 hover:text-socialflow-700 mt-2 inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-socialflow-300 focus-visible:ring-offset-1 rounded"
+                              className="text-[10px] text-socialflow-600 hover:text-socialflow-700 mt-2 inline-block font-medium rounded"
                             >
                               {t('calendar.detailsAndComments')}
                             </Link>
@@ -516,7 +399,7 @@ export default function Calendar() {
                   )}
                 </>
               ) : (
-              <p className="text-xs text-gray-400">{t('calendar.selectDay')}</p>
+                <p className="text-xs text-slate-400">{t('calendar.selectDay')}</p>
               )}
             </div>
           </div>

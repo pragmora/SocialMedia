@@ -27,11 +27,11 @@ vi.mock('react-router-dom', async () => {
 // import from @/lib/statusTransitions, so this ONE mock propagates to both.
 vi.mock('@/lib/statusTransitions', () => ({
   NEXT_STATUS: {
-    draft: ['review'],
-    review: ['draft', 'approved', 'rejected'], // ← NEW: 'rejected' added
-    approved: ['published'],
-    published: ['archived'],
-    archived: [],
+    draft: ['review', 'approved', 'published', 'archived'],
+    review: ['draft', 'approved', 'published', 'archived', 'rejected'],
+    approved: ['draft', 'review', 'published', 'archived'],
+    published: ['draft', 'review', 'approved', 'archived'],
+    archived: ['draft', 'review', 'approved', 'published'],
   },
 }))
 
