@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
 import { getRoleLabel } from '@/lib/labels'
 import { useMe } from '@/context/useMe'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 interface Member {
   workspace_id: string
@@ -16,6 +17,33 @@ interface UserOption {
   id: string
   email: string
   name: string
+}
+
+interface ModulePermission {
+  module_key: string
+  enabled: boolean
+}
+
+const MODULE_KEYS = [
+  'dashboard',
+  'calendar',
+  'content',
+  'projects',
+  'tasks',
+  'clients',
+  'members',
+  'finances',
+] as const
+
+const MODULE_LABEL_KEY_MAP: Record<string, string> = {
+  dashboard: 'modules.dashboard',
+  calendar: 'modules.calendar',
+  content: 'modules.content',
+  projects: 'modules.projects',
+  tasks: 'modules.tasks',
+  clients: 'modules.clients',
+  members: 'modules.members',
+  finances: 'modules.finances',
 }
 
 export default function MemberList() {
@@ -34,6 +62,14 @@ export default function MemberList() {
   const [addRole, setAddRole] = useState('cm')
   const [addingMember, setAddingMember] = useState(false)
   const [addSuccess, setAddSuccess] = useState('')
+
+  const [permissionsModalUserId, setPermissionsModalUserId] = useState<string | null>(null)
+  const [permissionsModalUserName, setPermissionsModalUserName] = useState('')
+  const [modulePermissions, setModulePermissions] = useState<ModulePermission[]>([])
+  const [loadingPermissions, setLoadingPermissions] = useState(false)
+  const [savingPermissions, setSavingPermissions] = useState(false)
+  const [permissionsError, setPermissionsError] = useState('')
+  const [removeUserId, setRemoveUserId] = useState<string | null>(null)
 
   const isAdmin = user?.role === 'admin'
   const workspaceId = user?.active_workspace_id
@@ -63,6 +99,7 @@ export default function MemberList() {
   }
 
   async function handleRemove(targetUserId: string) {
+    setRemoveUserId(null)
     if (!workspaceId) return
     const res = await apiClient.delete(`/workspaces/${workspaceId}/members/${targetUserId}`)
     if (res.error) {
@@ -135,6 +172,63 @@ export default function MemberList() {
     loadMembers()
   }
 
+  async function openPermissionsModal(member: Member) {
+    if (!workspaceId) return
+    setPermissionsModalUserId(member.user_id)
+    setPermissionsModalUserName(member.user.name || member.user.email)
+    setPermissionsError('')
+    setModulePermissions([])
+    setLoadingPermissions(true)
+
+    const res = await apiClient.get<ModulePermission[]>(
+      `/workspaces/${workspaceId}/module-permissions/${member.user_id}`
+    )
+    setLoadingPermissions(false)
+
+    if (res.error) {
+      setPermissionsError(res.error.message)
+    } else {
+      setModulePermissions(res.data ?? [])
+    }
+  }
+
+  function toggleModulePermission(moduleKey: string) {
+    setModulePermissions((prev) => {
+      const exists = prev.find((p) => p.module_key === moduleKey)
+      if (exists) {
+        return prev.map((p) =>
+          p.module_key === moduleKey ? { ...p, enabled: !p.enabled } : p
+        )
+      }
+      return [...prev, { module_key: moduleKey, enabled: true }]
+    })
+  }
+
+  async function handleSavePermissions() {
+    if (!workspaceId || !permissionsModalUserId) return
+    setSavingPermissions(true)
+    setPermissionsError('')
+
+    const modules = MODULE_KEYS.map((key) => {
+      const found = modulePermissions.find((p) => p.module_key === key)
+      return { module_key: key, enabled: found?.enabled ?? false }
+    })
+
+    const res = await apiClient.put(
+      `/workspaces/${workspaceId}/module-permissions/${permissionsModalUserId}`,
+      { modules }
+    )
+
+    setSavingPermissions(false)
+
+    if (res.error) {
+      setPermissionsError(res.error.message)
+      return
+    }
+
+    setPermissionsModalUserId(null)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -161,7 +255,6 @@ export default function MemberList() {
         </div>
       )}
 
-      {/* Admin actions */}
       {isAdmin && (
         <div className="bg-white rounded-2xl border border-slate-200/80 p-5 mb-5 shadow-sm">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -194,7 +287,6 @@ export default function MemberList() {
         </div>
       )}
 
-      {/* Members list */}
       <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
@@ -243,12 +335,26 @@ export default function MemberList() {
                 {isAdmin && (
                   <td className="px-5 py-3.5 text-right">
                     {m.user_id !== user?.id && (
-                      <button
-                        onClick={() => handleRemove(m.user_id)}
-                        className="text-xs text-red-500 hover:text-red-700 font-semibold"
-                      >
-                        {t('members.remove')}
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        {m.role === 'admin' ? (
+                          <span className="inline-flex items-center rounded-full bg-socialflow-100 px-2.5 py-0.5 text-[10px] font-semibold text-socialflow-700 uppercase tracking-wider">
+                            {t('members.fullAccess')}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => openPermissionsModal(m)}
+                            className="rounded-xl border border-socialflow-200 bg-socialflow-50 px-3 py-1.5 text-xs font-semibold text-socialflow-700 hover:bg-socialflow-100 transition-colors active:scale-[0.97]"
+                          >
+                            {t('members.permissions')}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setRemoveUserId(m.user_id)}
+                          className="text-xs text-red-500 hover:text-red-700 font-semibold"
+                        >
+                          {t('members.remove')}
+                        </button>
+                      </div>
                     )}
                   </td>
                 )}
@@ -258,7 +364,6 @@ export default function MemberList() {
         </table>
       </div>
 
-      {/* Add Member Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
@@ -324,6 +429,76 @@ export default function MemberList() {
           </div>
         </div>
       )}
+
+      {permissionsModalUserId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPermissionsModalUserId(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">{t('members.modulePermissions')}</h3>
+            <p className="text-sm text-slate-500 mb-5">{permissionsModalUserName}</p>
+
+            {permissionsError && (
+              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
+                {permissionsError}
+              </div>
+            )}
+
+            {loadingPermissions ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-socialflow-600 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {MODULE_KEYS.map((key) => {
+                  const perm = modulePermissions.find((p) => p.module_key === key)
+                  const enabled = perm?.enabled ?? false
+
+                  return (
+                    <label
+                      key={key}
+                      className={`flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer transition-colors ${
+                        enabled ? 'bg-socialflow-50' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={() => toggleModulePermission(key)}
+                        className="w-4 h-4 rounded border-slate-300 text-socialflow-600 focus:ring-socialflow-500 focus:ring-offset-0"
+                      />
+                      <span className="text-sm font-medium text-slate-800">{t(MODULE_LABEL_KEY_MAP[key])}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setPermissionsModalUserId(null)}
+                className="flex-1 rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-300 transition-colors active:scale-[0.97]"
+              >
+                {t('members.cancel')}
+              </button>
+              <button
+                onClick={handleSavePermissions}
+                disabled={savingPermissions || loadingPermissions}
+                className="flex-1 rounded-xl bg-socialflow-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-socialflow-700 transition-colors disabled:opacity-50 shadow-sm active:scale-[0.97]"
+              >
+                {savingPermissions ? t('members.saving') : t('members.save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={removeUserId !== null}
+        title={t('members.remove')}
+        message={t('members.confirmRemove')}
+        onConfirm={() => removeUserId && handleRemove(removeUserId)}
+        onCancel={() => setRemoveUserId(null)}
+      />
     </div>
   )
 }

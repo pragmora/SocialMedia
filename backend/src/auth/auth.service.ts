@@ -3,12 +3,15 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { SupabaseService } from '../supabase/supabase.service';
 import { RegisterDto, LoginDto } from './dto';
 import { ErrMsg } from '../common/errors';
+
+const ALL_MODULES = ['dashboard', 'calendar', 'content', 'projects', 'tasks', 'clients', 'members', 'finances'];
 
 @Injectable()
 export class AuthService {
@@ -22,11 +25,18 @@ export class AuthService {
       throw new BadRequestException('correo y contraseña son obligatorios');
     }
 
-    const { data: existing } = await this.supabase.db
+    const { data: existing, error: existErr } = await this.supabase.db
       .from('users')
       .select('id')
       .eq('email', dto.email)
       .single();
+
+    if (existErr) {
+      throw new InternalServerErrorException({
+        code: 'internal',
+        message: 'error al verificar usuario',
+      });
+    }
 
     if (existing) {
       throw new ConflictException({
@@ -38,29 +48,47 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const name = dto.name || dto.email;
 
-    const { data: user, error } = await this.supabase.db
+    const { data: user, error: userErr } = await this.supabase.db
       .from('users')
       .insert({ email: dto.email, password_hash: passwordHash, name })
       .select('id, email, name')
       .single();
 
-    if (error) throw error;
+    if (userErr || !user) {
+      throw new InternalServerErrorException({
+        code: 'internal',
+        message: 'error al crear usuario',
+      });
+    }
 
     let workspaceId: string | undefined;
     let role: string | undefined;
 
-    const { data: ws } = await this.supabase.db
+    const { data: ws, error: wsErr } = await this.supabase.db
       .from('workspaces')
       .insert({ name: `${name}'s Workspace` })
       .select('id')
       .single();
 
-    if (ws) {
-      workspaceId = ws.id;
-      role = 'admin';
-      await this.supabase.db
-        .from('memberships')
-        .insert({ workspace_id: ws.id, user_id: user.id, role });
+    if (wsErr || !ws) {
+      throw new InternalServerErrorException({
+        code: 'internal',
+        message: 'error al crear espacio de trabajo',
+      });
+    }
+
+    workspaceId = ws.id;
+    role = 'admin';
+
+    const { error: memErr } = await this.supabase.db
+      .from('memberships')
+      .insert({ workspace_id: ws.id, user_id: user.id, role });
+
+    if (memErr) {
+      throw new InternalServerErrorException({
+        code: 'internal',
+        message: 'error al crear membresía',
+      });
     }
 
     return this.buildResponse(user, workspaceId, role);
@@ -71,13 +99,13 @@ export class AuthService {
       throw new BadRequestException('correo y contraseña son obligatorios');
     }
 
-    const { data: user } = await this.supabase.db
+    const { data: user, error: userErr } = await this.supabase.db
       .from('users')
       .select('*')
       .eq('email', dto.email)
       .single();
 
-    if (!user) {
+    if (userErr || !user) {
       throw new UnauthorizedException({
         code: 'unauthorized',
         message: 'correo o contraseña inválidos',
@@ -92,10 +120,17 @@ export class AuthService {
       });
     }
 
-    const { data: memberships } = await this.supabase.db
+    const { data: memberships, error: memErr } = await this.supabase.db
       .from('memberships')
       .select('workspace_id, role')
       .eq('user_id', user.id);
+
+    if (memErr) {
+      throw new InternalServerErrorException({
+        code: 'internal',
+        message: 'error al consultar membresías',
+      });
+    }
 
     let workspaceId: string | undefined;
     let role: string | undefined;
@@ -109,13 +144,13 @@ export class AuthService {
   }
 
   async me(userId: string, activeWorkspaceId?: string, activeRole?: string) {
-    const { data: user } = await this.supabase.db
+    const { data: user, error: userErr } = await this.supabase.db
       .from('users')
       .select('id, email, name')
       .eq('id', userId)
       .single();
 
-    if (!user) return null;
+    if (userErr || !user) return null;
 
     let active_workspace_id = activeWorkspaceId;
     let role = activeRole;
@@ -132,12 +167,32 @@ export class AuthService {
       }
     }
 
+    // Fetch modules for the active workspace
+    let modules: string[] = ALL_MODULES;
+    if (active_workspace_id) {
+      if (role === 'admin') {
+        modules = ALL_MODULES;
+      } else {
+        const { data: perms } = await this.supabase.db
+          .from('workspace_module_permissions')
+          .select('module_key')
+          .eq('workspace_id', active_workspace_id)
+          .eq('user_id', userId)
+          .eq('enabled', true);
+
+        if (perms && perms.length > 0) {
+          modules = perms.map((p) => p.module_key);
+        }
+      }
+    }
+
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       active_workspace_id,
       role,
+      modules,
     };
   }
 
@@ -151,6 +206,25 @@ export class AuthService {
       expiresIn: hours * 3600,
     });
 
+    // Fetch modules for the workspace
+    let modules: string[] = ALL_MODULES;
+    if (workspaceId) {
+      if (role === 'admin') {
+        modules = ALL_MODULES;
+      } else {
+        const { data: perms } = await this.supabase.db
+          .from('workspace_module_permissions')
+          .select('module_key')
+          .eq('workspace_id', workspaceId)
+          .eq('user_id', user.id)
+          .eq('enabled', true);
+
+        if (perms && perms.length > 0) {
+          modules = perms.map((p) => p.module_key);
+        }
+      }
+    }
+
     return {
       token,
       user: {
@@ -159,6 +233,7 @@ export class AuthService {
         name: user.name,
         active_workspace_id: workspaceId,
         role,
+        modules,
       },
     };
   }

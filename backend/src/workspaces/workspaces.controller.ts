@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { WorkspacesService } from './workspaces.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { WorkspaceGuard } from '../common/workspace.guard';
 import { RolesGuard } from '../common/roles.guard';
 import { Roles } from '../common/roles.decorator';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -61,6 +62,7 @@ export class WorkspacesController {
   }
 
   @Get('members')
+  @UseGuards(WorkspaceGuard)
   listMyMembers(
     @CurrentUser('sub') userId: string,
     @WorkspaceId() workspaceId: string,
@@ -110,5 +112,26 @@ export class WorkspacesController {
   @Post('invites/:token/claim')
   claimInvite(@CurrentUser('sub') userId: string, @Param('token') token: string) {
     return this.svc.claimInvite(userId, token);
+  }
+
+  @Get('workspaces/:id/module-permissions/:userId')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  getModulePermissions(
+    @Param('id') workspaceId: string,
+    @Param('userId') targetUserId: string,
+  ) {
+    return this.svc.getModulePermissions(workspaceId, targetUserId);
+  }
+
+  @Put('workspaces/:id/module-permissions/:userId')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  setModulePermissions(
+    @Param('id') workspaceId: string,
+    @Param('userId') targetUserId: string,
+    @Body() body: { modules: { module_key: string; enabled: boolean }[] },
+  ) {
+    return this.svc.setModulePermissions(workspaceId, targetUserId, body.modules);
   }
 }

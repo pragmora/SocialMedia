@@ -3,33 +3,44 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { ClientsService } from './clients.service';
+import { FinancesService } from './finances.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { WorkspaceGuard } from '../common/workspace.guard';
 import { WorkspaceId } from '../common/workspace.decorator';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
-import { CreateClientDto, UpdateClientDto } from './dto';
+import { CreatePaymentDto, UpdatePaymentDto } from './dto';
 
-@Controller('clients')
+@Controller('payments')
 @UseGuards(JwtAuthGuard, WorkspaceGuard, RolesGuard)
-export class ClientsController {
-  constructor(private readonly svc: ClientsService) {}
+export class FinancesController {
+  constructor(private readonly svc: FinancesService) {}
 
   @Get()
-  list(@WorkspaceId() wsId: string) {
-    return this.svc.list(wsId);
+  list(
+    @WorkspaceId() wsId: string,
+    @Query('client_id') client_id?: string,
+    @Query('start_date') start_date?: string,
+    @Query('end_date') end_date?: string,
+  ) {
+    return this.svc.list(wsId, { client_id, start_date, end_date });
   }
 
   @Post()
   @Roles('admin', 'cm')
-  create(@WorkspaceId() wsId: string, @CurrentUser('sub') userId: string, @Body() dto: CreateClientDto) {
+  create(
+    @WorkspaceId() wsId: string,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: CreatePaymentDto,
+  ) {
     return this.svc.create(wsId, userId, dto);
   }
 
@@ -44,14 +55,20 @@ export class ClientsController {
     @WorkspaceId() wsId: string,
     @CurrentUser('sub') userId: string,
     @Param('id') id: string,
-    @Body() dto: UpdateClientDto,
+    @Body() dto: UpdatePaymentDto,
   ) {
     return this.svc.update(wsId, userId, id, dto);
   }
 
   @Delete(':id')
-  @Roles('admin', 'cm')
+  @Roles('admin')
   delete(@WorkspaceId() wsId: string, @Param('id') id: string) {
     return this.svc.delete(wsId, id);
+  }
+
+  @Patch(':id/toggle-status')
+  @Roles('admin', 'cm')
+  toggleStatus(@WorkspaceId() wsId: string, @Param('id') id: string) {
+    return this.svc.toggleStatus(wsId, id);
   }
 }

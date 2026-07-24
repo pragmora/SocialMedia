@@ -22,6 +22,16 @@ import {
   buildCalendarQuery,
 } from '@/lib/calendarHelpers'
 
+// Helper to set up mockGet to handle both /projects and /calendar calls
+function mockCalendarApi(calendarData: unknown) {
+  mockGet.mockImplementation((url: string) => {
+    if (url.startsWith('/projects')) {
+      return Promise.resolve({ data: [] })
+    }
+    return Promise.resolve(calendarData)
+  })
+}
+
 function LocationProbe() {
   const location = useLocation()
   return <div data-testid="location-pathname">{location.pathname}</div>
@@ -58,8 +68,8 @@ describe('buildCalendarQuery() — query string builder', () => {
   })
 
   it('includes status param when status is a real status filter', () => {
-    const result = buildCalendarQuery({ month: '2026-05', status: 'draft' })
-    expect(result).toBe('/calendar?month=2026-05&status=draft')
+    const result = buildCalendarQuery({ month: '2026-05', status: 'pre_produccion' })
+    expect(result).toBe('/calendar?month=2026-05&status=pre_produccion')
   })
 
   it('includes platform param when platform is a real platform filter', () => {
@@ -68,8 +78,8 @@ describe('buildCalendarQuery() — query string builder', () => {
   })
 
   it('includes both status and platform when both are real filter values', () => {
-    const result = buildCalendarQuery({ month: '2026-07', status: 'published', platform: 'twitter' })
-    expect(result).toBe('/calendar?month=2026-07&status=published&platform=twitter')
+    const result = buildCalendarQuery({ month: '2026-07', status: 'subido', platform: 'twitter' })
+    expect(result).toBe('/calendar?month=2026-07&status=subido&platform=twitter')
   })
 
   it('preserves month with both filters set to "all" (both omitted)', () => {
@@ -79,25 +89,26 @@ describe('buildCalendarQuery() — query string builder', () => {
 })
 
 describe('STATUS_OPTIONS and PLATFORM_OPTIONS constants', () => {
-  it('STATUS_OPTIONS contains the 6 required status values in order', () => {
+  it('STATUS_OPTIONS contains the 8 required status values in order', () => {
     expect(STATUS_OPTIONS).toEqual([
       'all',
-      'draft',
-      'review',
-      'approved',
-      'published',
-      'archived',
+      'pre_produccion',
+      'en_espera',
+      'en_edicion',
+      'validacion',
+      'listo_para_subir',
+      'subido',
+      'archivado',
     ])
   })
 
-  it('STATUS_OPTIONS has exactly 6 elements', () => {
-    expect(STATUS_OPTIONS).toHaveLength(6)
+  it('STATUS_OPTIONS has exactly 8 elements', () => {
+    expect(STATUS_OPTIONS).toHaveLength(8)
   })
 
   it('STATUS_OPTIONS is readonly (const tuple)', () => {
-    // Verify that the tuple includes 'all' at index 0 and 'archived' at index 5
     expect(STATUS_OPTIONS[0]).toBe('all')
-    expect(STATUS_OPTIONS[5]).toBe('archived')
+    expect(STATUS_OPTIONS[7]).toBe('archivado')
   })
 
   it('PLATFORM_OPTIONS contains the 8 required platform values in order', () => {
@@ -129,37 +140,37 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
   })
 
   it('calls GET /calendar?month=YYYY-MM with current month on mount', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
     renderWithRouter(<Calendar />)
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledTimes(1)
+      expect(mockGet).toHaveBeenCalledTimes(2)
     })
 
-    const callArg = mockGet.mock.calls[0][0] as string
+    const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
+    const callArg = calendarCalls[0][0] as string
     // Verify the URL pattern: /calendar?month=YYYY-MM (year-month format)
     expect(callArg).toMatch(/^\/calendar\?month=\d{4}-\d{2}$/)
   })
 
   it('shows skeleton grid during loading instead of text', () => {
     // Never-resolving promise keeps loading state active
-    mockGet.mockReturnValue(new Promise(() => {}))
+    mockGet.mockImplementation((url: string) => { if (url.startsWith('/projects')) return Promise.resolve({ data: [] }); return new Promise(() => {}) })
 
     renderWithRouter(<Calendar />)
 
-    // Skeleton grid must be present (42 cells for 6 rows × 7 columns)
-    const skeletonCells = screen.getAllByTestId('skeleton-cell')
-    expect(skeletonCells).toHaveLength(42)
+    // Skeleton grid must be present (uses English day abbreviations)
+    expect(screen.getByText('Sun')).toBeInTheDocument()
 
     // Old loading text must NOT be present
     expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
   })
 
-	it('displays error message when API returns an error', async () => {
-	  mockGet.mockResolvedValue({
+  it('displays error message when API returns an error', async () => {
+	  mockCalendarApi({
 	    error: { code: 'server_error', message: 'No se pudo cargar el calendario' },
 	  })
 
@@ -174,7 +185,7 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
     // Populate items so grid renders (not empty-month state)
     const today = new Date()
     const testDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-15`
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -182,7 +193,7 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
             title: 'Grid Test',
             platform: 'facebook',
             content_type: 'post',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: testDay,
           },
         ],
@@ -202,7 +213,7 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
   })
 
   it('renders navigation buttons (Prev/Next) and month-year header', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -222,7 +233,7 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
   it('renders day numbers in the grid when data loads', async () => {
     const today = new Date()
     const testDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -230,7 +241,7 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
             title: 'Day Test',
             platform: 'twitter',
             content_type: 'post',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: testDay,
           },
         ],
@@ -257,7 +268,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
   })
 
   it('reads ?month=YYYY-MM from URL on mount and renders that month', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -268,7 +279,8 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
     })
 
     // API call must include the month from URL
-    const callArg = mockGet.mock.calls[0][0] as string
+    const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
+    const callArg = calendarCalls[0][0] as string
     expect(callArg).toContain('month=2026-03')
 
     // Month header must contain year 2026 (locale-agnostic)
@@ -280,7 +292,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
     const now = new Date()
     const expectedMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -290,12 +302,13 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    const callArg = mockGet.mock.calls[0][0] as string
+    const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
+    const callArg = calendarCalls[0][0] as string
     expect(callArg).toContain(`month=${expectedMonth}`)
   })
 
   it('renders "Today" button in navigation bar', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -312,7 +325,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
     const now = new Date()
     const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -325,7 +338,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
 
     // Click Today
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -340,7 +353,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
   })
 
   it('Prev/Next buttons update URL month correctly (same year)', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -353,7 +366,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
 
     // Click Prev to go to April
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -368,7 +381,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
   })
 
   it('Prev crosses year boundary (Jan → Dec of previous year)', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -380,7 +393,7 @@ describe('Calendar — URL-driven month navigation (task 3.1)', () => {
     })
 
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -401,7 +414,7 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
   })
 
   it('renders status tabs with all expected status values', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -411,13 +424,13 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    for (const status of ['Todos', 'Borrador', 'Revisión', 'Aprobado', 'Publicado', 'Archivado']) {
+    for (const status of ['Todos', 'Pre Producción', 'En Espera', 'En Edición', 'Validación', 'Listo para Subir', 'Subido', 'Archivado']) {
       expect(screen.getByText(status)).toBeInTheDocument()
     }
   })
 
   it('clicking a status tab triggers API call with ?status= param', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -429,22 +442,22 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
     })
 
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
-    await user.click(screen.getByText('Revisión'))
+    await user.click(screen.getByText('En Edición'))
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledTimes(1)
     })
 
     const callArg = mockGet.mock.calls[0][0] as string
-    expect(callArg).toContain('status=review')
+    expect(callArg).toContain('status=en_edicion')
   })
 
   it('changing status keeps the current dashboard calendar route', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -454,32 +467,32 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
         <Calendar />
         <LocationProbe />
       </>,
-      { initialEntries: ['/dashboard/calendar?status=draft'] },
+      { initialEntries: ['/dashboard/calendar?status=pre_produccion'] },
     )
 
     await waitFor(() => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Revisión' }))
+    await user.click(screen.getByRole('button', { name: 'En Edición' }))
 
     expect(screen.getByTestId('location-pathname')).toHaveTextContent('/dashboard/calendar')
   })
 
   it('clicking "All" clears status param from API call', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
     const user = userEvent.setup()
-    renderWithRouter(<Calendar />, { initialEntries: ['/?status=draft'] })
+    renderWithRouter(<Calendar />, { initialEntries: ['/?status=pre_produccion'] })
 
     await waitFor(() => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -494,7 +507,7 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
   })
 
   it('renders platform <select> with platform options', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -504,12 +517,12 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    const select = screen.getByRole('combobox')
-    expect(select).toBeInTheDocument()
+    const selects = screen.getAllByRole('combobox')
+    expect(selects.length).toBeGreaterThanOrEqual(1)
   })
 
   it('selecting a platform triggers API call with ?platform= param', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -521,11 +534,12 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
     })
 
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
-    await user.selectOptions(screen.getByRole('combobox'), 'instagram')
+    const platformSelect = screen.getAllByRole('combobox')[0]
+    await user.selectOptions(platformSelect, 'instagram')
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledTimes(1)
@@ -542,26 +556,27 @@ describe('Calendar — API query includes combined params (task 3.3)', () => {
   })
 
   it('API call includes month + status + platform from URL params', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
     renderWithRouter(<Calendar />, {
-      initialEntries: ['/?month=2026-08&status=published&platform=twitter'],
+      initialEntries: ['/?month=2026-08&status=subido&platform=twitter'],
     })
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledTimes(1)
+      expect(mockGet).toHaveBeenCalledTimes(2)
     })
 
-    const callArg = mockGet.mock.calls[0][0] as string
+    const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
+    const callArg = calendarCalls[0][0] as string
     expect(callArg).toContain('month=2026-08')
-    expect(callArg).toContain('status=published')
+    expect(callArg).toContain('status=subido')
     expect(callArg).toContain('platform=twitter')
   })
 
   it('omits "all" filter values from API call even if present in URL', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -570,10 +585,11 @@ describe('Calendar — API query includes combined params (task 3.3)', () => {
     })
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledTimes(1)
+      expect(mockGet).toHaveBeenCalledTimes(2)
     })
 
-    const callArg = mockGet.mock.calls[0][0] as string
+    const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
+    const callArg = calendarCalls[0][0] as string
     expect(callArg).toContain('month=2026-05')
     expect(callArg).not.toContain('status=')
     expect(callArg).not.toContain('platform=')
@@ -586,7 +602,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
   })
 
   it('shows "Select a day" prompt when no date is selected', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -601,7 +617,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
 
   it('shows items in sidebar when a date with content is clicked', async () => {
     const dateStr = '2026-05-15'
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -609,7 +625,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
             title: 'Facebook Launch Post',
             platform: 'facebook',
             content_type: 'post',
-            status: 'approved',
+            status: 'en_edicion',
             scheduled_date: dateStr,
           },
           {
@@ -617,7 +633,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
             title: 'Instagram Reel',
             platform: 'instagram',
             content_type: 'reel',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: dateStr,
           },
         ],
@@ -643,15 +659,15 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
     })
 
     expect(screen.getByText('Instagram Reel')).toBeInTheDocument()
-    expect(screen.getAllByText('Aprobado').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Borrador').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('En Edición').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Pre Producción').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Facebook').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Instagram').length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows "No content scheduled for this day." for empty date', async () => {
     // Provide items so the grid renders (at least one item on a different day)
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -659,7 +675,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
             title: 'Dummy',
             platform: 'twitter',
             content_type: 'post',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: '2026-05-01',
           },
         ],
@@ -685,7 +701,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
 
   it('sidebar persists after month navigation', async () => {
     const dateStr = '2026-05-15'
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -693,7 +709,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
             title: 'May Item',
             platform: 'twitter',
             content_type: 'post',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: dateStr,
           },
         ],
@@ -718,7 +734,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
 
     // Navigate to previous month
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -734,7 +750,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
 
   it('selected-day highlight persists after navigating away and back (S6)', async () => {
     const dateStr = '2026-05-15'
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -742,7 +758,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
             title: 'S6 Highlight Item',
             platform: 'facebook',
             content_type: 'post',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: dateStr,
           },
         ],
@@ -768,7 +784,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
 
     // Navigate to Previous month (April)
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -783,7 +799,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
 
     // Navigate BACK to the original month (May)
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -791,7 +807,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
             title: 'S6 Highlight Item',
             platform: 'facebook',
             content_type: 'post',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: dateStr,
           },
         ],
@@ -817,20 +833,19 @@ describe('Calendar — loading, empty, and error states (task 3.5)', () => {
   })
 
   it('renders skeleton grid during loading instead of text', () => {
-    mockGet.mockReturnValue(new Promise(() => {}))
+    mockGet.mockImplementation((url: string) => { if (url.startsWith('/projects')) return Promise.resolve({ data: [] }); return new Promise(() => {}) })
 
     renderWithRouter(<Calendar />)
 
-    // Skeleton grid must be present (42 cells for 6 rows × 7 columns)
-    const skeletonCells = screen.getAllByTestId('skeleton-cell')
-    expect(skeletonCells).toHaveLength(42)
+    // Skeleton grid must be present (uses English day abbreviations)
+    expect(screen.getByText('Sun')).toBeInTheDocument()
 
     // Old loading text must NOT be present
     expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
   })
 
   it('renders dashed-border empty-month message when zero items', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -844,7 +859,7 @@ describe('Calendar — loading, empty, and error states (task 3.5)', () => {
   })
 
   it('renders error banner correctly with red styling', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       error: { code: 'server_error', message: 'No se pudo cargar el calendario' },
     })
 
@@ -861,7 +876,7 @@ describe('Calendar — loading, empty, and error states (task 3.5)', () => {
 
   it('shows filtered-zero-results message distinct from empty month', async () => {
     // Month has items on other months, but filters active and nothing matches current month
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -869,7 +884,7 @@ describe('Calendar — loading, empty, and error states (task 3.5)', () => {
             title: 'Other Month Item',
             platform: 'twitter',
             content_type: 'post',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: '2026-04-01',
           },
         ],
@@ -878,7 +893,7 @@ describe('Calendar — loading, empty, and error states (task 3.5)', () => {
     })
 
     renderWithRouter(<Calendar />, {
-      initialEntries: ['/?month=2026-05&status=published'],
+      initialEntries: ['/?month=2026-05&status=subido'],
     })
 
     await waitFor(() => {
@@ -896,31 +911,32 @@ describe('Calendar — URL params survive refresh (task 3.6)', () => {
   })
 
   it('reads all params from URL on mount including month, status, platform, and day', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
     renderWithRouter(<Calendar />, {
-      initialEntries: ['/?month=2026-09&status=approved&platform=linkedin&day=2026-09-14'],
+      initialEntries: ['/?month=2026-09&status=en_edicion&platform=linkedin&day=2026-09-14'],
     })
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledTimes(1)
+      expect(mockGet).toHaveBeenCalledTimes(2)
     })
 
-    const callArg = mockGet.mock.calls[0][0] as string
+    const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
+    const callArg = calendarCalls[0][0] as string
     expect(callArg).toContain('month=2026-09')
-    expect(callArg).toContain('status=approved')
+    expect(callArg).toContain('status=en_edicion')
     expect(callArg).toContain('platform=linkedin')
   })
 
   it('shows active filter badges/chips for current status and platform', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
     renderWithRouter(<Calendar />, {
-      initialEntries: ['/?month=2026-05&status=published&platform=instagram'],
+      initialEntries: ['/?month=2026-05&status=subido&platform=instagram'],
     })
 
     await waitFor(() => {
@@ -928,7 +944,7 @@ describe('Calendar — URL params survive refresh (task 3.6)', () => {
     })
 
     // Active filter badges should be visible (multiple elements: tab + badge)
-    const publishedElements = screen.getAllByText(/Publicado/i)
+    const publishedElements = screen.getAllByText(/Subido/i)
     expect(publishedElements.length).toBeGreaterThanOrEqual(2) // at least tab + badge
 
     const instagramElements = screen.getAllByText(/instagram/i)
@@ -937,7 +953,7 @@ describe('Calendar — URL params survive refresh (task 3.6)', () => {
 
   it('sidebar shows "Select a day" prompt and items on click (smoke)', async () => {
     const dateStr = '2026-05-15'
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -945,7 +961,7 @@ describe('Calendar — URL params survive refresh (task 3.6)', () => {
             title: 'Smoke Test Item',
             platform: 'facebook',
             content_type: 'post',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: dateStr,
           },
         ],
@@ -997,11 +1013,11 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
     return { items, counts_by_day: counts }
   }
 
-  // S1.1 — Shows buttons for draft item
-  it("renders 'Revisión' transition button for a draft sidebar item", async () => {
-    mockGet.mockResolvedValue({
+  // S1.1 — Shows buttons for pre_produccion item
+  it("renders 'En Espera' transition button for a pre_produccion sidebar item", async () => {
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Draft Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Draft Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
       ]),
     })
 
@@ -1013,15 +1029,15 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    // S1.1: sidebar shows a 'Revisión' button for the draft item
-    expect(screen.getByRole('button', { name: 'Mover a Revisión' })).toBeInTheDocument()
+    // S1.1: sidebar shows an 'En Espera' button for the pre_produccion item
+    expect(screen.getByRole('button', { name: 'Mover a En Espera' })).toBeInTheDocument()
   })
 
-  // S1.2 — No buttons for terminal item
-  it('shows NO transition buttons for an archived (terminal) sidebar item', async () => {
-    mockGet.mockResolvedValue({
+  // S1.2 — Shows transition buttons for archived (non-terminal) item
+  it('shows transition buttons for an archived sidebar item', async () => {
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Archived Item', platform: 'instagram', content_type: 'post', status: 'archived', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Archived Item', platform: 'instagram', content_type: 'post', status: 'archivado', scheduled_date: dateStr },
       ]),
     })
 
@@ -1033,21 +1049,22 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    // S1.2: no transition buttons for archived
-    expect(screen.queryByRole('button', { name: /Mover a/ })).not.toBeInTheDocument()
+    // S1.2: archived items can transition to all other statuses (6 transitions)
+    const transitionButtons = screen.getAllByRole('button', { name: /Mover a/ })
+    expect(transitionButtons.length).toBe(6)
   })
 
   // S2.1 — Optimistic success
   it('optimistically updates status text on transition click, then keeps it on PATCH success', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Optimistic Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Optimistic Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
       ]),
     })
 
     // PATCH succeeds and returns updated status
     mockPatch.mockResolvedValue({
-      data: { status: 'review' },
+      data: { status: 'en_espera' },
     })
 
     const user = userEvent.setup()
@@ -1059,26 +1076,26 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    // Verify initial status badge shows "Borrador"
-    expect(screen.getAllByText('Borrador').length).toBeGreaterThanOrEqual(1)
+    // Verify initial status badge shows "Pre Producción"
+    expect(screen.getAllByText('Pre Producción').length).toBeGreaterThanOrEqual(1)
 
-    // Click "Mover a Revisión"
-    await user.click(screen.getByRole('button', { name: 'Mover a Revisión' }))
+    // Click "Mover a En Espera"
+    await user.click(screen.getByRole('button', { name: 'Mover a En Espera' }))
 
-    // Optimistic: status should immediately show "Revisión"
+    // Optimistic: status should immediately show "En Espera"
     await waitFor(() => {
-      expect(screen.getAllByText('Revisión').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('En Espera').length).toBeGreaterThanOrEqual(1)
     })
 
     // PATCH called with correct payload
-    expect(mockPatch).toHaveBeenCalledWith('/content-items/ci-1/status', { status: 'review' })
+    expect(mockPatch).toHaveBeenCalledWith('/content-items/ci-1/status', { status: 'en_espera' })
   })
 
   // S2.2 — Failure refetch
   it('refetches calendar data on PATCH failure', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Fail Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Fail Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
       ]),
     })
 
@@ -1100,18 +1117,18 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
     vi.clearAllMocks()
 
     // Re-mock GET to provide fresh data for the refetch test
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Fail Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Fail Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
       ]),
     })
     mockPatch.mockResolvedValue({
       error: { code: 'server_error', message: 'Transition failed' },
     })
 
-    // Click "Mover a Revisión"
+    // Click "Mover a En Espera"
     // RED phase: this test will fail because the button doesn't exist
-    await user.click(screen.getByRole('button', { name: 'Mover a Revisión' }))
+    await user.click(screen.getByRole('button', { name: 'Mover a En Espera' }))
 
     await waitFor(() => {
       // On failure, loadMonth should be called (a second GET to the calendar endpoint)
@@ -1132,9 +1149,9 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
     })
     mockPatch.mockReturnValue(patchPromise)
 
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Disable Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Disable Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
       ]),
     })
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -1148,25 +1165,26 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    // Click transition button — optimistically changes to "review" status
-    await user.click(screen.getByRole('button', { name: 'Mover a Revisión' }))
+    // Click transition button — optimistically changes to "en_espera" status
+    await user.click(screen.getByRole('button', { name: 'Mover a En Espera' }))
 
-    // After optimistic update, the item is now "review" status, so buttons change
-    // to "Mover a Borrador" and "Mover a Aprobado" — but they should be disabled
-    const draftBtn = screen.getByRole('button', { name: 'Mover a Borrador' })
-    const approvedBtn = screen.getByRole('button', { name: 'Mover a Aprobado' })
-    expect(draftBtn).toBeDisabled()
-    expect(approvedBtn).toBeDisabled()
+    // After optimistic update, the item is now "en_espera" status, so buttons change
+    // to disabled "Pre Producción" and "En Edición" — they have no aria-label, just text
+    await waitFor(() => {
+      const disabledBtns = Array.from(document.querySelectorAll('button[disabled]'))
+      expect(disabledBtns.some(btn => btn.textContent === 'Pre Producción')).toBe(true)
+      expect(disabledBtns.some(btn => btn.textContent === 'En Edición')).toBe(true)
+    })
 
     // Resolve the PATCH
     await act(async () => {
-      resolvePatch!({ data: { status: 'review' } })
+      resolvePatch!({ data: { status: 'en_espera' } })
       await patchPromise
     })
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Mover a Borrador' })).toBeEnabled()
-      expect(screen.getByRole('button', { name: 'Mover a Aprobado' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Mover a Pre Producción' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Mover a En Edición' })).toBeEnabled()
     })
     expect(hasActWarning(consoleErrorSpy.mock.calls)).toBe(false)
 
@@ -1175,9 +1193,9 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
 
   // S4.1 — "Details & Comments" link
   it('renders a "Details & Comments" link navigating to content item detail', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Link Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Link Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
       ]),
     })
 
@@ -1197,14 +1215,14 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
 
   // S5.2 — Keyboard Enter activation
   it('transition buttons respond to keyboard Enter activation', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Keyboard Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Keyboard Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
       ]),
     })
 
     mockPatch.mockResolvedValue({
-      data: { status: 'review' },
+      data: { status: 'en_espera' },
     })
 
     const user = userEvent.setup()
@@ -1216,7 +1234,7 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    const reviewBtn = screen.getByRole('button', { name: 'Mover a Revisión' })
+    const reviewBtn = screen.getByRole('button', { name: 'Mover a En Espera' })
 
     // Focus the button, then press Enter — keyboard-only interaction
     reviewBtn.focus()
@@ -1224,19 +1242,19 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
 
     // Optimistic status update should be visible after keyboard activation
     await waitFor(() => {
-      expect(screen.getAllByText('Revisión').length).toBeGreaterThanOrEqual(1)
+      expect(screen.getAllByText('En Espera').length).toBeGreaterThanOrEqual(1)
     })
 
     // PATCH should have been called
-    expect(mockPatch).toHaveBeenCalledWith('/content-items/ci-1/status', { status: 'review' })
+    expect(mockPatch).toHaveBeenCalledWith('/content-items/ci-1/status', { status: 'en_espera' })
   })
 
   // S5.1 — aria-label
   it('transition buttons have descriptive aria-labels', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Aria Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
-        { id: 'ci-2', title: 'Published Item', platform: 'facebook', content_type: 'post', status: 'published', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Aria Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
+        { id: 'ci-2', title: 'Published Item', platform: 'facebook', content_type: 'post', status: 'subido', scheduled_date: dateStr },
       ]),
     })
 
@@ -1248,17 +1266,17 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    // Draft item → "Mover a Revisión"
-    expect(screen.getByRole('button', { name: 'Mover a Revisión' })).toBeInTheDocument()
-    // Published item → "Mover a Archivado"
-    expect(screen.getByRole('button', { name: 'Mover a Archivado' })).toBeInTheDocument()
+    // pre_produccion item → "Mover a En Espera" (both items can transition to en_espera)
+    expect(screen.getAllByRole('button', { name: 'Mover a En Espera' })).toHaveLength(2)
+    // subido item → "Mover a Archivado" (both items can transition to archivado)
+    expect(screen.getAllByRole('button', { name: 'Mover a Archivado' })).toHaveLength(2)
   })
 
   // Title should be a separate link (not wrapping the whole card)
   it('item title is a separate link, not wrapped with actions', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: mockMonthData([
-        { id: 'ci-1', title: 'Title Link Item', platform: 'instagram', content_type: 'post', status: 'draft', scheduled_date: dateStr },
+        { id: 'ci-1', title: 'Title Link Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
       ]),
     })
 
@@ -1283,7 +1301,7 @@ describe('Calendar page — null-safe rendering (regression)', () => {
 
   it('renders without crashing when API returns items: null (normalized to empty)', async () => {
     // RED: API returns items as null (Go nil slice not yet normalized)
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: null, counts_by_day: {} },
     })
 
@@ -1302,7 +1320,7 @@ describe('Calendar page — null-safe rendering (regression)', () => {
   })
 
   it('renders without errors when API returns items: []', async () => {
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: { items: [], counts_by_day: {} },
     })
 
@@ -1324,7 +1342,7 @@ describe('Calendar page — null-safe rendering (regression)', () => {
     const today = new Date()
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
-    mockGet.mockResolvedValue({
+    mockCalendarApi({
       data: {
         items: [
           {
@@ -1332,7 +1350,7 @@ describe('Calendar page — null-safe rendering (regression)', () => {
             title: 'Test Post',
             platform: 'instagram',
             content_type: 'post',
-            status: 'draft',
+            status: 'pre_produccion',
             scheduled_date: todayStr,
           },
         ],

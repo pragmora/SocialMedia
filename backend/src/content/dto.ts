@@ -5,11 +5,13 @@ import {
 } from 'class-validator';
 
 export enum ContentStatus {
-  Draft = 'draft',
-  Review = 'review',
-  Approved = 'approved',
-  Published = 'published',
-  Archived = 'archived',
+  PreProduccion = 'pre_produccion',
+  EnEspera = 'en_espera',
+  EnEdicion = 'en_edicion',
+  Validacion = 'validacion',
+  ListoParaSubir = 'listo_para_subir',
+  Subido = 'subido',
+  Archivado = 'archivado',
 }
 
 export enum ContentPlatform {

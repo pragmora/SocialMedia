@@ -7,6 +7,7 @@ export interface CurrentUser {
   active_workspace_id: string
   role: string
   name?: string
+  modules: string[]
 }
 
 interface MeContextValue {
@@ -91,16 +92,22 @@ export function MeProvider({ children }: { children: ReactNode }) {
     }
 
     if (res.data) {
-      // Update local user state with new active workspace
-      setUser((prev) =>
-        prev
-          ? {
-              ...prev,
-              active_workspace_id: res.data!.active_workspace_id,
-              role: res.data!.role,
-            }
-          : null,
-      )
+      // Re-fetch full user data (including modules) after workspace switch
+      const meRes = await apiClient.get<CurrentUser>('/me')
+      if (meRes.data) {
+        setUser(meRes.data)
+      } else {
+        // Fallback: update what we have
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                active_workspace_id: res.data!.active_workspace_id,
+                role: res.data!.role,
+              }
+            : null,
+        )
+      }
       return res.data
     }
 

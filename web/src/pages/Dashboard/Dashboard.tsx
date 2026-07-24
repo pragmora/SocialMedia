@@ -21,12 +21,16 @@ interface DashboardData {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  review: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-blue-100 text-blue-800',
-  published: 'bg-green-100 text-green-800',
-  archived: 'bg-red-100 text-red-800',
+  pre_produccion: 'bg-gray-100 text-gray-700',
+  en_espera: 'bg-yellow-100 text-yellow-800',
+  en_edicion: 'bg-blue-100 text-blue-800',
+  validacion: 'bg-purple-100 text-purple-800',
+  listo_para_subir: 'bg-indigo-100 text-indigo-800',
+  subido: 'bg-green-100 text-green-800',
+  archivado: 'bg-red-100 text-red-800',
 }
+
+const STATUS_ORDER = ['pre_produccion', 'en_espera', 'en_edicion', 'validacion', 'listo_para_subir', 'subido', 'archivado']
 
 export default function Dashboard() {
   const { t } = useTranslation()
@@ -94,7 +98,7 @@ export default function Dashboard() {
 
       {/* Status count cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 mb-8">
-        {Object.entries(data.status_counts).map(([status, count]) => (
+        {STATUS_ORDER.filter((s) => (data.status_counts[s] ?? 0) > 0).map((status) => (
           <Link
             key={status}
             to={`/dashboard/content-items?status=${status}`}
@@ -105,7 +109,7 @@ export default function Dashboard() {
                 {getStatusLabel(status)}
               </span>
             </div>
-            <p className="text-2xl md:text-3xl font-bold text-slate-900">{count}</p>
+            <p className="text-2xl md:text-3xl font-bold text-slate-900">{data.status_counts[status]}</p>
           </Link>
         ))}
 

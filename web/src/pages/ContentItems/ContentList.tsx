@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
 import { getContentTypeLabel, getPlatformLabel, getStatusLabel } from '@/lib/labels'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 interface ContentItem {
   id: string
@@ -30,11 +31,13 @@ interface WorkspaceMember {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  review: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-blue-100 text-blue-800',
-  published: 'bg-green-100 text-green-800',
-  archived: 'bg-red-100 text-red-800',
+  pre_produccion: 'bg-gray-100 text-gray-700',
+  en_espera: 'bg-yellow-100 text-yellow-800',
+  en_edicion: 'bg-blue-100 text-blue-800',
+  validacion: 'bg-purple-100 text-purple-800',
+  listo_para_subir: 'bg-indigo-100 text-indigo-800',
+  subido: 'bg-green-100 text-green-800',
+  archivado: 'bg-red-100 text-red-800',
 }
 
 export default function ContentList() {
@@ -49,7 +52,7 @@ export default function ContentList() {
   const projectFilter = searchParams.get('project_id') ?? ''
   const assignedToMe = searchParams.get('assigned_to_me') === 'true'
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({})
-
+  const [deleteId, setDeleteId] = useState<string | null>(null)
   const loadItems = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -129,7 +132,17 @@ export default function ContentList() {
     setExpandedProjects((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const statusTabs = ['all', 'draft', 'review', 'approved', 'published', 'archived']
+  async function handleDelete(id: string) {
+    setDeleteId(null)
+    const res = await apiClient.delete(`/content-items/${id}`)
+    if (res.error) {
+      setError(res.error.message)
+      return
+    }
+    setItems((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const statusTabs = ['all', 'pre_produccion', 'en_espera', 'en_edicion', 'validacion', 'listo_para_subir', 'subido', 'archivado']
 
   if (loading) {
     return (
@@ -278,12 +291,20 @@ export default function ContentList() {
                                   : (item.assignee_id || '—')}
                               </td>
                               <td className="px-5 py-3.5 text-right">
-                                <Link
-                                  to={`/dashboard/content-items/${item.id}/edit`}
-                                  className="text-xs text-socialflow-600 hover:text-socialflow-700 font-semibold"
-                                >
-                                  {t('content.edit')}
-                                </Link>
+                                <div className="inline-flex items-center gap-3">
+                                  <Link
+                                    to={`/dashboard/content-items/${item.id}/edit`}
+                                    className="text-xs text-socialflow-600 hover:text-socialflow-700 font-semibold"
+                                  >
+                                    {t('content.edit')}
+                                  </Link>
+                                  <button
+                                    onClick={() => setDeleteId(item.id)}
+                                    className="text-xs text-red-400 hover:text-red-600 font-semibold"
+                                  >
+                                    {t('content.delete')}
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -294,36 +315,51 @@ export default function ContentList() {
                     {/* Mobile cards */}
                     <div className="md:hidden space-y-3">
                       {groupItems.map((item) => (
-                        <Link
-                          key={item.id}
-                          to={`/dashboard/content-items/${item.id}`}
-                          className="block bg-white rounded-xl border border-slate-200/80 p-4 card-hover shadow-sm"
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <h3 className="font-semibold text-slate-900 text-sm leading-snug">{item.title}</h3>
-                            <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[item.status] ?? ''}`}>
-                              {getStatusLabel(item.status)}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-                            <span>{getPlatformLabel(item.platform)}</span>
-                            <span>·</span>
-                            <span>{getContentTypeLabel(item.content_type)}</span>
-                            {item.scheduled_date && (
-                              <>
-                                <span>·</span>
-                                <span>📅 {item.scheduled_date}</span>
-                              </>
-                            )}
-                          </div>
-                          {(item.fecha_inicial || item.fecha_final || item.assignee_id) && (
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-400">
-                              {item.fecha_inicial && <span>▶ {item.fecha_inicial}</span>}
-                              {item.fecha_final && <span>◼ {item.fecha_final}</span>}
-                              {item.assignee_id && <span>👤 {members[item.assignee_id]?.user?.name || members[item.assignee_id]?.user?.email || item.assignee_id}</span>}
+                        <div key={item.id} className="bg-white rounded-xl border border-slate-200/80 p-4 card-hover shadow-sm">
+                          <Link
+                            to={`/dashboard/content-items/${item.id}`}
+                            className="block"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <h3 className="font-semibold text-slate-900 text-sm leading-snug">{item.title}</h3>
+                              <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_COLORS[item.status] ?? ''}`}>
+                                {getStatusLabel(item.status)}
+                              </span>
                             </div>
-                          )}
-                        </Link>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                              <span>{getPlatformLabel(item.platform)}</span>
+                              <span>·</span>
+                              <span>{getContentTypeLabel(item.content_type)}</span>
+                              {item.scheduled_date && (
+                                <>
+                                  <span>·</span>
+                                  <span>📅 {item.scheduled_date}</span>
+                                </>
+                              )}
+                            </div>
+                            {(item.fecha_inicial || item.fecha_final || item.assignee_id) && (
+                              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-400">
+                                {item.fecha_inicial && <span>▶ {item.fecha_inicial}</span>}
+                                {item.fecha_final && <span>◼ {item.fecha_final}</span>}
+                                {item.assignee_id && <span>👤 {members[item.assignee_id]?.user?.name || members[item.assignee_id]?.user?.email || item.assignee_id}</span>}
+                              </div>
+                            )}
+                          </Link>
+                          <div className="flex gap-3 mt-3 pt-3 border-t border-slate-100">
+                            <Link
+                              to={`/dashboard/content-items/${item.id}/edit`}
+                              className="text-xs font-semibold text-socialflow-600 hover:text-socialflow-700"
+                            >
+                              {t('content.edit')}
+                            </Link>
+                            <button
+                              onClick={() => setDeleteId(item.id)}
+                              className="text-xs font-semibold text-red-400 hover:text-red-600"
+                            >
+                              {t('content.delete')}
+                            </button>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </>
@@ -333,6 +369,14 @@ export default function ContentList() {
           })}
         </>
       )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title={t('content.delete')}
+        message={t('content.confirmDelete')}
+        onConfirm={() => deleteId && handleDelete(deleteId)}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   )
 }

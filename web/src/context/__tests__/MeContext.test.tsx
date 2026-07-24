@@ -388,9 +388,9 @@ describe('MeContext', () => {
     })
   })
 
-  it('switchWorkspace() calls POST /workspaces/switch and updates local user state', async () => {
+  it('switchWorkspace() calls POST /workspaces/switch, re-fetches /me, and updates local user state', async () => {
     mockGet.mockResolvedValue({
-      data: { id: '1', email: 'user@test.com', active_workspace_id: 'ws1', role: 'member' },
+      data: { id: '1', email: 'user@test.com', active_workspace_id: 'ws1', role: 'member', modules: ['dashboard', 'content', 'calendar', 'tasks', 'projects', 'clients', 'members', 'finances'] },
     })
 
     renderProvider()
@@ -401,9 +401,12 @@ describe('MeContext', () => {
       expect(screen.getByTestId('user-role')).toHaveTextContent('member')
     })
 
-    // Set up switch API response
+    // Set up switch API response, then /me re-fetch for new workspace
     mockPost.mockResolvedValue({
       data: { active_workspace_id: 'ws2', role: 'editor' },
+    })
+    mockGet.mockResolvedValue({
+      data: { id: '1', email: 'user@test.com', active_workspace_id: 'ws2', role: 'editor', modules: ['dashboard', 'content', 'calendar', 'tasks'] },
     })
 
     screen.getByTestId('switch-btn').click()
@@ -415,7 +418,7 @@ describe('MeContext', () => {
       })
     })
 
-    // User state updated with new workspace and role
+    // User state updated with new workspace and role from /me re-fetch
     await waitFor(() => {
       expect(screen.getByTestId('user-workspace')).toHaveTextContent('ws2')
       expect(screen.getByTestId('user-role')).toHaveTextContent('editor')

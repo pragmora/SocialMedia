@@ -7,11 +7,13 @@
  */
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Borrador',
-  review: 'Revisión',
-  approved: 'Aprobado',
-  published: 'Publicado',
-  archived: 'Archivado',
+  pre_produccion: 'Pre Producción',
+  en_espera: 'En Espera',
+  en_edicion: 'En Edición',
+  validacion: 'Validación',
+  listo_para_subir: 'Listo para Subir',
+  subido: 'Subido',
+  archivado: 'Archivado',
 }
 
 export function getStatusLabel(status: string): string {
@@ -54,4 +56,17 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function getRoleLabel(role: string): string {
   return ROLE_LABELS[role] ?? role
+}
+
+export const PAYMENT_METHODS = ['transferencia', 'efectivo', 'tarjeta', 'otro'] as const
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  transferencia: 'Transferencia',
+  efectivo: 'Efectivo',
+  tarjeta: 'Tarjeta',
+  otro: 'Otro',
+}
+
+export function getPaymentMethodLabel(method: string): string {
+  return PAYMENT_METHOD_LABELS[method] ?? method
 }

@@ -2,13 +2,16 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
+import { useMe } from '@/context/useMe'
 
 interface ProjectData {
   name: string
   description: string
   start_date: string
   end_date: string
+  client_id: string | null
   assignee_id: string | null
+  workspace_ids: string[]
 }
 
 interface WorkspaceMember {
@@ -16,27 +19,62 @@ interface WorkspaceMember {
   user: { id: string; email: string; name: string }
 }
 
+interface Workspace {
+  id: string
+  name: string
+}
+
+interface Client {
+  id: string
+  name: string
+}
+
 export default function ProjectForm() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
+  const { user } = useMe()
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [clientId, setClientId] = useState('')
   const [assigneeId, setAssigneeId] = useState('')
   const [members, setMembers] = useState<WorkspaceMember[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [selectedWorkspaceIds, setSelectedWorkspaceIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(isEdit)
   const [error, setError] = useState('')
+
+  const activeWorkspaceId = user?.active_workspace_id
 
   useEffect(() => {
     apiClient.get<WorkspaceMember[]>('/members').then((res) => {
       if (res.data) setMembers(res.data)
     })
 
+    apiClient.get<Client[]>('/clients').then((res) => {
+      if (res.data) setClients(res.data)
+    })
+
+    apiClient.get<Workspace[]>('/workspaces').then((res) => {
+      if (res.data) {
+        setWorkspaces(res.data)
+        if (activeWorkspaceId) {
+          setSelectedWorkspaceIds((prev) => {
+            if (prev.size > 0) return prev
+            return new Set([activeWorkspaceId])
+          })
+        }
+      }
+    })
+  }, [activeWorkspaceId])
+
+  useEffect(() => {
     if (!isEdit) return
     apiClient.get<ProjectData>(`/projects/${id}`).then((res) => {
       if (res.data) {
@@ -44,13 +82,30 @@ export default function ProjectForm() {
         setDescription(res.data.description ?? '')
         setStartDate(res.data.start_date ?? '')
         setEndDate(res.data.end_date ?? '')
+        setClientId(res.data.client_id ?? '')
         setAssigneeId(res.data.assignee_id ?? '')
+        if (res.data.workspace_ids) {
+          setSelectedWorkspaceIds(new Set(res.data.workspace_ids))
+        }
       } else if (res.error) {
         setError(res.error.message)
       }
       setFetching(false)
     })
   }, [id, isEdit])
+
+  function toggleWorkspace(wsId: string) {
+    if (wsId === activeWorkspaceId) return
+    setSelectedWorkspaceIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(wsId)) {
+        next.delete(wsId)
+      } else {
+        next.add(wsId)
+      }
+      return next
+    })
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -62,7 +117,9 @@ export default function ProjectForm() {
       description,
       start_date: startDate || null,
       end_date: endDate || null,
+      client_id: clientId || null,
       assignee_id: assigneeId || null,
+      workspace_ids: Array.from(selectedWorkspaceIds),
     }
 
     const res = isEdit
@@ -169,12 +226,62 @@ export default function ProjectForm() {
               ))}
             </select>
           </label>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-700">{t('projects.form.client')}</span>
+            <select
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 bg-white"
+            >
+              <option value="">{t('projects.form.noClient')}</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-semibold text-slate-700">{t('projects.form.workspaces')}</span>
+            <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+              {workspaces.length === 0 && (
+                <p className="text-xs text-slate-400">{t('projects.form.noWorkspaces')}</p>
+              )}
+              {workspaces.map((ws) => {
+                const isCurrent = ws.id === activeWorkspaceId
+                return (
+                  <label
+                    key={ws.id}
+                    className={`flex items-center gap-2.5 text-sm cursor-pointer ${isCurrent ? 'cursor-default' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedWorkspaceIds.has(ws.id)}
+                      disabled={isCurrent}
+                      onChange={() => toggleWorkspace(ws.id)}
+                      className="rounded border-slate-300 text-socialflow-600 focus:ring-socialflow-500 disabled:opacity-50"
+                    />
+                    <span className={isCurrent ? 'text-slate-900 font-medium' : 'text-slate-700'}>
+                      {ws.name}
+                    </span>
+                    {isCurrent && (
+                      <span className="text-[10px] font-semibold text-socialflow-600 bg-socialflow-50 rounded-full px-1.5 py-0.5 leading-none">
+                        {t('projects.form.currentWorkspace')}
+                      </span>
+                    )}
+                  </label>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-3 pt-6 mt-6 border-t border-slate-100">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || selectedWorkspaceIds.size === 0}
             className="rounded-xl bg-socialflow-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-socialflow-700 transition-colors disabled:opacity-50 shadow-sm active:scale-[0.97]"
           >
             {loading ? t('projects.saving') : isEdit ? t('projects.saveChanges') : t('projects.createProject')}

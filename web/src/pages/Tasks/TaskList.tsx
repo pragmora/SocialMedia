@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 interface Task {
   id: string
@@ -9,7 +10,8 @@ interface Task {
   title: string
   description: string
   assignee_id: string | null
-  due_date: string | null
+  start_date: string | null
+  end_date: string | null
   done: boolean
   content_item_id: string | null
   client_id: string | null
@@ -22,6 +24,7 @@ export default function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     apiClient.get<Task[]>('/tasks').then((res) => {
@@ -39,7 +42,8 @@ export default function TaskList() {
       title: task.title,
       description: task.description,
       assignee_id: task.assignee_id,
-      due_date: task.due_date,
+      start_date: task.start_date,
+      end_date: task.end_date,
       done: !task.done,
       content_item_id: task.content_item_id,
       client_id: task.client_id,
@@ -50,6 +54,7 @@ export default function TaskList() {
   }
 
   async function handleDelete(taskId: string) {
+    setDeleteId(null)
     const res = await apiClient.delete(`/tasks/${taskId}`)
     if (res.error) {
       setError(res.error.message)
@@ -59,7 +64,7 @@ export default function TaskList() {
   }
 
   const isOverdue = (task: Task) =>
-    task.due_date && !task.done && task.due_date < new Date().toISOString().slice(0, 10)
+    task.end_date && !task.done && task.end_date < new Date().toISOString().slice(0, 10)
 
   if (loading) {
     return (
@@ -102,7 +107,8 @@ export default function TaskList() {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="text-left px-5 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider">{t('tasks.table.done')}</th>
                   <th className="text-left px-5 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider">{t('tasks.table.title')}</th>
-                  <th className="text-left px-5 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider">{t('tasks.table.due')}</th>
+                  <th className="text-left px-5 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider">{t('tasks.table.startDate')}</th>
+                  <th className="text-left px-5 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider">{t('tasks.table.endDate')}</th>
                   <th className="text-left px-5 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider">{t('tasks.table.linked')}</th>
                   <th className="text-right px-5 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider">{t('tasks.table.actions')}</th>
                 </tr>
@@ -139,10 +145,13 @@ export default function TaskList() {
                         <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{task.description}</p>
                       )}
                     </td>
+                    <td className="px-5 py-3.5 text-xs text-slate-500">
+                      {task.start_date || '—'}
+                    </td>
                     <td className="px-5 py-3.5">
-                      {task.due_date ? (
+                      {task.end_date ? (
                         <span className={`text-xs font-medium ${isOverdue(task) ? 'text-red-600' : 'text-slate-500'}`}>
-                          {isOverdue(task) && '⚠ '}{task.due_date}
+                          {isOverdue(task) && '⚠ '}{task.end_date}
                         </span>
                       ) : (
                         <span className="text-xs text-slate-300">—</span>
@@ -161,7 +170,7 @@ export default function TaskList() {
                         {t('tasks.edit')}
                       </Link>
                       <button
-                        onClick={() => handleDelete(task.id)}
+                        onClick={() => setDeleteId(task.id)}
                         className="text-xs text-red-400 hover:text-red-600 font-semibold"
                       >
                         {t('tasks.delete')}
@@ -205,9 +214,10 @@ export default function TaskList() {
                       <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{task.description}</p>
                     )}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-slate-400">
-                      {task.due_date && (
+                      {task.start_date && <span>📅 {task.start_date}</span>}
+                      {task.end_date && (
                         <span className={isOverdue(task) ? 'text-red-500 font-medium' : ''}>
-                          {isOverdue(task) ? '⚠ ' : '📅 '}{task.due_date}
+                          {isOverdue(task) ? '⚠ ' : '📅 '}{task.end_date}
                         </span>
                       )}
                       {task.content_item_id && <span>📝</span>}
@@ -223,7 +233,7 @@ export default function TaskList() {
                     {t('tasks.edit')}
                   </Link>
                   <button
-                    onClick={() => handleDelete(task.id)}
+                    onClick={() => setDeleteId(task.id)}
                     className="text-xs font-semibold text-red-400 hover:text-red-600"
                   >
                     {t('tasks.delete')}
@@ -234,6 +244,14 @@ export default function TaskList() {
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title={t('tasks.delete')}
+        message={t('tasks.confirmDelete')}
+        onConfirm={() => deleteId && handleDelete(deleteId)}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   )
 }

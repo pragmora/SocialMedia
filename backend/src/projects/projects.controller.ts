@@ -12,12 +12,13 @@ import {
 import { ProjectsService } from './projects.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+import { WorkspaceGuard } from '../common/workspace.guard';
 import { WorkspaceId } from '../common/workspace.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import { CreateProjectDto, UpdateProjectDto } from './dto';
 
 @Controller('projects')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, WorkspaceGuard, RolesGuard)
 export class ProjectsController {
   constructor(private readonly svc: ProjectsService) {}
 

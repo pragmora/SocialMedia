@@ -19,6 +19,8 @@ import ProjectList from '@/pages/Projects/ProjectList'
 import ProjectForm from '@/pages/Projects/ProjectForm'
 import MemberList from '@/pages/Members/MemberList'
 import InviteClaim from '@/pages/InviteClaim'
+import FinancesList from '@/pages/Finances/FinanceList'
+import FinanceForm from '@/pages/Finances/FinanceForm'
 
 function Home() {
   const { t } = useTranslation()
@@ -84,6 +86,11 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
     </svg>
   ),
+  finances: (
+    <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
 }
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -94,6 +101,7 @@ const iconMap: Record<string, React.ReactNode> = {
   tasks: icons.tasks,
   calendar: icons.calendar,
   members: icons.members,
+  finances: icons.finances,
 }
 
 /* ── Nav link ────────────────────────────────────────────── */
@@ -102,7 +110,7 @@ interface NavItem {
   label: string
   path: string
   icon: string
-  minRole?: string
+  module?: string
 }
 
 function NavLink({ item, location, onClick }: { item: NavItem; location: { pathname: string }; onClick?: () => void }) {
@@ -145,28 +153,26 @@ function DashboardShell() {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const ROLE_HIERARCHY: Record<string, number> = { viewer: 0, cm: 1, admin: 2 }
-  const userLevel = ROLE_HIERARCHY[user?.role ?? ''] ?? 0
-
   const mainNav: NavItem[] = [
-    { label: t('nav.dashboard'), path: '/dashboard', icon: 'dashboard' },
-    { label: t('nav.calendar'), path: '/dashboard/calendar', icon: 'calendar' },
+    { label: t('nav.dashboard'), path: '/dashboard', icon: 'dashboard', module: 'dashboard' },
+    { label: t('nav.calendar'), path: '/dashboard/calendar', icon: 'calendar', module: 'calendar' },
   ]
 
   const managementNav: NavItem[] = [
-    { label: t('nav.content'), path: '/dashboard/content-items', icon: 'content', minRole: 'cm' },
-    { label: t('nav.projects'), path: '/dashboard/projects', icon: 'projects', minRole: 'cm' },
-    { label: t('nav.tasks'), path: '/dashboard/tasks', icon: 'tasks', minRole: 'cm' },
-    { label: t('nav.clients'), path: '/dashboard/clients', icon: 'clients', minRole: 'cm' },
+    { label: t('nav.content'), path: '/dashboard/content-items', icon: 'content', module: 'content' },
+    { label: t('nav.projects'), path: '/dashboard/projects', icon: 'projects', module: 'projects' },
+    { label: t('nav.tasks'), path: '/dashboard/tasks', icon: 'tasks', module: 'tasks' },
+    { label: t('nav.clients'), path: '/dashboard/clients', icon: 'clients', module: 'clients' },
+    { label: t('nav.finances'), path: '/dashboard/finances', icon: 'finances', module: 'finances' },
   ]
 
   const adminNav: NavItem[] = [
-    { label: t('nav.members'), path: '/dashboard/members', icon: 'members', minRole: 'admin' },
+    { label: t('nav.members'), path: '/dashboard/members', icon: 'members', module: 'members' },
   ]
 
   const canSee = (item: NavItem) => {
-    if (!item.minRole) return true
-    return userLevel >= (ROLE_HIERARCHY[item.minRole] ?? 0)
+    if (!item.module) return true
+    return user?.modules?.includes(item.module) ?? true
   }
 
   const visibleMain = mainNav.filter(canSee)
@@ -297,7 +303,7 @@ function DashboardShell() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 md:ml-64">
         <main className="flex-1 p-4 md:p-8 pt-20 md:pt-8">
-          <Routes>
+          <Routes key={user?.active_workspace_id ?? 'none'}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/clients" element={<ClientList />} />
             <Route path="/clients/new" element={<ClientForm />} />
@@ -314,6 +320,9 @@ function DashboardShell() {
             <Route path="/projects/new" element={<ProjectForm />} />
             <Route path="/projects/:id/edit" element={<ProjectForm />} />
             <Route path="/members" element={<MemberList />} />
+            <Route path="/finances" element={<FinancesList />} />
+            <Route path="/finances/new" element={<FinanceForm />} />
+            <Route path="/finances/:id/edit" element={<FinanceForm />} />
           </Routes>
         </main>
       </div>

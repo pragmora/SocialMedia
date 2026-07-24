@@ -37,22 +37,37 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       });
     }
 
-    const { data: user } = await this.supabase.db
+    const { data: user, error: userError } = await this.supabase.db
       .from('users')
       .select('id')
       .eq('id', payload.sub)
       .single();
 
-    if (!user) {
+    if (userError || !user) {
       throw new UnauthorizedException({
         code: 'unauthorized',
         message: 'usuario no encontrado',
       });
     }
 
-    request.workspaceId = payload.wid;
-    request.membershipRole = payload.rol;
+    let wid = payload.wid;
+    let rol = payload.rol;
 
-    return payload;
+    if (!wid || !rol) {
+      const { data: memberships } = await this.supabase.db
+        .from('memberships')
+        .select('workspace_id, role')
+        .eq('user_id', payload.sub);
+
+      if (memberships && memberships.length > 0) {
+        wid = wid || memberships[0].workspace_id;
+        rol = rol || memberships[0].role;
+      }
+    }
+
+    request.workspaceId = wid;
+    request.membershipRole = rol;
+
+    return { ...payload, wid, rol };
   }
 }

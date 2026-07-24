@@ -19,16 +19,8 @@ interface ContentItemData {
   assignee_id: string | null
 }
 
-interface ClientOption {
-  id: string
-  name: string
-}
-
-interface ProjectOption {
-  id: string
-  name: string
-}
-
+interface ClientOption { id: string; name: string }
+interface ProjectOption { id: string; name: string }
 interface WorkspaceMember {
   user_id: string
   user: { id: string; email: string; name: string }
@@ -58,15 +50,9 @@ export default function ContentForm() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    apiClient.get<ClientOption[]>('/clients').then((res) => {
-      if (res.data) setClients(res.data)
-    })
-    apiClient.get<ProjectOption[]>('/projects').then((res) => {
-      if (res.data) setProjects(res.data)
-    })
-    apiClient.get<WorkspaceMember[]>('/members').then((res) => {
-      if (res.data) setMembers(res.data)
-    })
+    apiClient.get<ClientOption[]>('/clients').then((res) => { if (res.data) setClients(res.data) })
+    apiClient.get<ProjectOption[]>('/projects').then((res) => { if (res.data) setProjects(res.data) })
+    apiClient.get<WorkspaceMember[]>('/members').then((res) => { if (res.data) setMembers(res.data) })
 
     if (!isEdit) return
     apiClient.get<ContentItemData>(`/content-items/${id}`).then((res) => {
@@ -111,12 +97,7 @@ export default function ContentForm() {
       : await apiClient.post<unknown>('/content-items', body)
 
     setLoading(false)
-
-    if (res.error) {
-      setError(res.error.message)
-      return
-    }
-
+    if (res.error) { setError(res.error.message); return }
     navigate('/dashboard/content-items')
   }
 
@@ -129,7 +110,7 @@ export default function ContentForm() {
   }
 
   return (
-    <div className="max-w-xl mx-auto animate-fade-in">
+    <div className="max-w-2xl mx-auto animate-fade-in">
       <div className="mb-6">
         <Link to="/dashboard/content-items" className="text-sm text-socialflow-600 hover:text-socialflow-700 font-medium inline-flex items-center gap-1">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
@@ -148,38 +129,38 @@ export default function ContentForm() {
           </div>
         )}
 
-        <div className="space-y-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">{t('content.form.title')}</span>
+        <div className="space-y-5">
+          <label className="block">
+            <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.title')}</span>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
               autoFocus
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all"
               placeholder={t('content.form.titlePlaceholder')}
             />
           </label>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">{t('content.form.description')}</span>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.description')}</span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 resize-none"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all resize-none"
               placeholder={t('content.form.descriptionPlaceholder')}
             />
           </label>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">{t('content.form.platform')}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.platform')}</span>
               <select
                 value={platform}
                 onChange={(e) => setPlatform(e.target.value)}
-                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 bg-white"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all"
               >
                 {PLATFORMS.map((p) => (
                   <option key={p} value={p}>{getPlatformLabel(p)}</option>
@@ -187,12 +168,12 @@ export default function ContentForm() {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">{t('content.form.type')}</span>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.type')}</span>
               <select
                 value={contentType}
                 onChange={(e) => setContentType(e.target.value)}
-                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 bg-white"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all"
               >
                 {CONTENT_TYPES.map((ct) => (
                   <option key={ct} value={ct}>{getContentTypeLabel(ct)}</option>
@@ -201,72 +182,74 @@ export default function ContentForm() {
             </label>
           </div>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">{t('content.form.project')}</span>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 bg-white"
-            >
-              <option value="">{t('content.form.noProject')}</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.project')}</span>
+              <select
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all"
+              >
+                <option value="">{t('content.form.noProject')}</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </label>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">{t('content.form.client')}</span>
-            <select
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 bg-white"
-            >
-              <option value="">{t('content.form.noClient')}</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </label>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.client')}</span>
+              <select
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all"
+              >
+                <option value="">{t('content.form.noClient')}</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">{t('content.form.scheduledDate')}</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <label className="block">
+              <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.scheduledDate')}</span>
               <input
                 type="date"
                 value={scheduledDate}
                 onChange={(e) => setScheduledDate(e.target.value)}
-                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all"
               />
             </label>
 
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">{t('content.form.startDate')}</span>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.startDate')}</span>
               <input
                 type="date"
                 value={fechaInicial}
                 onChange={(e) => setFechaInicial(e.target.value)}
-                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all"
               />
             </label>
 
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-slate-700">{t('content.form.endDate')}</span>
+            <label className="block">
+              <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.endDate')}</span>
               <input
                 type="date"
                 value={fechaFinal}
                 onChange={(e) => setFechaFinal(e.target.value)}
-                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all"
               />
             </label>
           </div>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-semibold text-slate-700">{t('content.form.assignee')}</span>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-600 mb-1.5 block">{t('content.form.assignee')}</span>
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500 bg-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-socialflow-500 focus:ring-2 focus:ring-socialflow-100 outline-none transition-all"
             >
               <option value="">{t('content.form.noAssignee')}</option>
               {members.map((m) => (
@@ -282,14 +265,14 @@ export default function ContentForm() {
           <button
             type="submit"
             disabled={loading}
-            className="rounded-xl bg-socialflow-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-socialflow-700 transition-colors disabled:opacity-50 shadow-sm active:scale-[0.97]"
+            className="rounded-xl bg-socialflow-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-socialflow-700 transition-colors disabled:opacity-50 shadow-sm active:scale-[0.97]"
           >
             {loading ? t('content.saving') : isEdit ? t('content.saveChanges') : t('content.createItem')}
           </button>
           <button
             type="button"
             onClick={() => navigate('/dashboard/content-items')}
-            className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors active:scale-[0.97]"
+            className="rounded-xl border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors active:scale-[0.97]"
           >
             {t('content.cancel')}
           </button>
@@ -298,4 +281,3 @@ export default function ContentForm() {
     </div>
   )
 }
-

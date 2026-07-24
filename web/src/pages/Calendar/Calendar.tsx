@@ -7,11 +7,13 @@ import { STATUS_OPTIONS, PLATFORM_OPTIONS, buildCalendarQuery } from '@/lib/cale
 import { NEXT_STATUS } from '@/lib/statusTransitions'
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700',
-  review: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-blue-100 text-blue-800',
-  published: 'bg-green-100 text-green-800',
-  archived: 'bg-red-100 text-red-800',
+  pre_produccion: 'bg-gray-100 text-gray-700',
+  en_espera: 'bg-yellow-100 text-yellow-800',
+  en_edicion: 'bg-blue-100 text-blue-800',
+  validacion: 'bg-purple-100 text-purple-800',
+  listo_para_subir: 'bg-indigo-100 text-indigo-800',
+  subido: 'bg-green-100 text-green-800',
+  archivado: 'bg-red-100 text-red-800',
 }
 
 function getCurrentMonth(): string {
@@ -28,18 +30,33 @@ function partsToMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`
 }
 
-interface ContentItem {
+interface CalendarItem {
   id: string
   title: string
   platform: string
   content_type: string
   status: string
   scheduled_date: string | null
+  type: 'content' | 'task' | 'payment'
+  amount?: number
+  done?: boolean
+  payment_status?: string
+}
+
+interface ProjectDates {
+  start_date: string | null
+  end_date: string | null
 }
 
 interface CalendarResult {
-  items: ContentItem[]
+  items: CalendarItem[]
   counts_by_day: Record<string, number>
+  project_dates: ProjectDates | null
+}
+
+interface Project {
+  id: string
+  name: string
 }
 
 function SkeletonGrid() {
@@ -70,13 +87,15 @@ export default function Calendar() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [pendingTransitions, setPendingTransitions] = useState<Record<string, string>>({})
+  const [projects, setProjects] = useState<Project[]>([])
 
   const month = searchParams.get('month') || getCurrentMonth()
   const status = searchParams.get('status') ?? ''
   const platform = searchParams.get('platform') ?? ''
   const day = searchParams.get('day') ?? ''
+  const projectId = searchParams.get('project_id') ?? ''
   const activeDay = day
-  const hasActiveFilters = (status && status !== 'all') || (platform && platform !== 'all')
+  const hasActiveFilters = (status && status !== 'all') || (platform && platform !== 'all') || !!projectId
 
   const { year, month: monthNum } = monthToParts(month)
   const today = new Date()
@@ -86,20 +105,36 @@ export default function Calendar() {
 
   const DAYS = [t('calendar.days.sun'), t('calendar.days.mon'), t('calendar.days.mar'), t('calendar.days.mi\u00E9'), t('calendar.days.jue'), t('calendar.days.vie'), t('calendar.days.s\u00E1b')]
 
+  useEffect(() => {
+    apiClient.get<Project[]>('/projects').then((res) => {
+      if (res.data) setProjects(res.data)
+    })
+  }, [])
+
   const loadMonth = useCallback(async () => {
     setLoading(true)
     setError('')
-    const queryPath = buildCalendarQuery({ month, status: status || undefined, platform: platform || undefined })
+    const queryPath = buildCalendarQuery({
+      month,
+      status: status || undefined,
+      platform: platform || undefined,
+      project_id: projectId || undefined,
+    })
     const res = await apiClient.get<CalendarResult>(queryPath)
     if (res.error) {
       setError(res.error.message)
     } else if (res.data) {
-      setData({ ...res.data, items: res.data.items ?? [], counts_by_day: res.data.counts_by_day ?? {} })
+      setData({
+        ...res.data,
+        items: res.data.items ?? [],
+        counts_by_day: res.data.counts_by_day ?? {},
+        project_dates: res.data.project_dates ?? null,
+      })
     } else {
       setData(null)
     }
     setLoading(false)
-  }, [month, status, platform])
+  }, [month, status, platform, projectId])
 
   useEffect(() => { loadMonth() }, [loadMonth])
 
@@ -109,7 +144,7 @@ export default function Calendar() {
       return { ...prev, items: prev.items.map((item) => item.id === itemId ? { ...item, status: nextStatus } : item) }
     })
     setPendingTransitions((prev) => ({ ...prev, [itemId]: nextStatus }))
-    const res = await apiClient.patch<ContentItem>(`/content-items/${itemId}/status`, { status: nextStatus })
+    const res = await apiClient.patch<CalendarItem>(`/content-items/${itemId}/status`, { status: nextStatus })
     setPendingTransitions((prev) => { const next = { ...prev }; delete next[itemId]; return next })
     if (res.error) {
       setError(res.error.message)
@@ -118,6 +153,33 @@ export default function Calendar() {
       setData((prev) => {
         if (!prev) return prev
         return { ...prev, items: prev.items.map((item) => item.id === itemId ? { ...item, status: res.data!.status } : item) }
+      })
+    }
+  }
+
+  async function handleTogglePaymentStatus(paymentId: string) {
+    setData((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        items: prev.items.map((item) =>
+          item.id === paymentId ? { ...item, payment_status: item.payment_status === 'paid' ? 'pending' : 'paid' } : item
+        ),
+      }
+    })
+    const res = await apiClient.patch<CalendarItem>(`/payments/${paymentId}/toggle-status`)
+    if (res.error) {
+      setError(res.error.message)
+      await loadMonth()
+    } else if (res.data) {
+      setData((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          items: prev.items.map((item) =>
+            item.id === paymentId ? { ...item, payment_status: res.data!.status } : item
+          ),
+        }
       })
     }
   }
@@ -158,10 +220,22 @@ export default function Calendar() {
     setSearchParams(newParams, { replace: true })
   }
 
+  function setProjectFilter(value: string) {
+    const newParams = new URLSearchParams(searchParams)
+    if (!value) newParams.delete('project_id')
+    else newParams.set('project_id', value)
+    setSearchParams(newParams, { replace: true })
+  }
+
   function selectDay(dateStr: string) {
     const newParams = new URLSearchParams(searchParams)
     newParams.set('day', dateStr)
     setSearchParams(newParams, { replace: true })
+  }
+
+  function isWithinProjectRange(dateStr: string): boolean {
+    if (!data?.project_dates?.start_date || !data?.project_dates?.end_date) return false
+    return dateStr >= data.project_dates.start_date && dateStr <= data.project_dates.end_date
   }
 
   const firstDay = new Date(year, monthNum - 1, 1)
@@ -176,6 +250,19 @@ export default function Calendar() {
   const selectedItems = activeDay && data
     ? data.items.filter((item) => item.scheduled_date === activeDay)
     : []
+
+  const contentItems = selectedItems.filter((i) => i.type === 'content')
+  const taskItems = selectedItems.filter((i) => i.type === 'task')
+  const paymentItems = selectedItems.filter((i) => i.type === 'payment')
+
+  const countsByTypeByDay: Record<string, { content: number; task: number; payment: number }> = {}
+  if (data) {
+    for (const item of data.items) {
+      if (!item.scheduled_date) continue
+      if (!countsByTypeByDay[item.scheduled_date]) countsByTypeByDay[item.scheduled_date] = { content: 0, task: 0, payment: 0 }
+      countsByTypeByDay[item.scheduled_date][item.type]++
+    }
+  }
 
   const isEmptyMonth = !loading && !error && data && (!data.items || data.items.length === 0)
   const isFilteredEmpty = !loading && !error && data && data.items && data.items.length > 0 &&
@@ -225,17 +312,29 @@ export default function Calendar() {
             )
           })}
         </div>
-        <select
-          value={platform || 'all'}
-          onChange={(e) => setPlatformFilter(e.target.value)}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-socialflow-300"
-        >
-          {PLATFORM_OPTIONS.map((p) => (
-            <option key={p} value={p}>
-              {p === 'all' ? t('platform.all') : getPlatformLabel(p)}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            value={platform || 'all'}
+            onChange={(e) => setPlatformFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-socialflow-300"
+          >
+            {PLATFORM_OPTIONS.map((p) => (
+              <option key={p} value={p}>
+                {p === 'all' ? t('platform.all') : getPlatformLabel(p)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={projectId || ''}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-socialflow-300"
+          >
+            <option value="">{t('calendar.allProjects')}</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {hasActiveFilters && (
@@ -249,6 +348,11 @@ export default function Calendar() {
           {platform && platform !== 'all' && (
             <span className="inline-flex items-center gap-1 rounded-full bg-socialflow-100 px-2 py-0.5 text-[10px] font-medium text-socialflow-700">
               {getPlatformLabel(platform)}
+            </span>
+          )}
+          {projectId && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-socialflow-100 px-2 py-0.5 text-[10px] font-medium text-socialflow-700">
+              {projects.find((p) => p.id === projectId)?.name ?? projectId}
             </span>
           )}
         </div>
@@ -274,64 +378,73 @@ export default function Calendar() {
         </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-6">
-          {isEmptyMonth ? (
-            <div className="flex-1 bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
-              <p className="text-slate-500">{t('calendar.noContentMonth')}</p>
-            </div>
-          ) : isFilteredEmpty ? (
-            <div className="flex-1 bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
-              <p className="text-slate-500">{t('calendar.noContentFilters')}</p>
-            </div>
-          ) : (
-            <div className="flex-1 bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
-              <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-200">
-                {DAYS.map((d) => (
-                  <div key={d} className="px-2 py-2 text-center text-xs font-medium text-slate-500">{d}</div>
-                ))}
+          <div className="flex-1 bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+            {(isEmptyMonth || isFilteredEmpty) && (
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-center">
+                <p className="text-xs text-slate-400">{isEmptyMonth ? t('calendar.noContentMonth') : t('calendar.noContentFilters')}</p>
               </div>
-              <div className="grid grid-cols-7">
-                {days.map((dayNum, i) => {
-                  const dateStr = dayNum
-                    ? `${year}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
-                    : null
-                  const count = dateStr && data ? (data.counts_by_day[dateStr] ?? 0) : 0
-                  const isToday = dateStr === todayStr
-                  const isSelected = dateStr === activeDay
+            )}
+            <div className="grid grid-cols-7 bg-slate-50 border-b border-slate-200">
+              {DAYS.map((d) => (
+                <div key={d} className="px-2 py-2 text-center text-xs font-medium text-slate-500">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {days.map((dayNum, i) => {
+                const dateStr = dayNum
+                  ? `${year}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
+                  : null
+                const isToday = dateStr === todayStr
+                const isSelected = dateStr === activeDay
+                const inProjectRange = dateStr ? isWithinProjectRange(dateStr) : false
 
-                  return (
-                    <div
-                      key={i}
-                      data-testid={dateStr ? `day-cell-${dateStr}` : 'day-cell-empty'}
-                      data-selected={isSelected ? 'true' : 'false'}
-                      className={`min-h-[70px] sm:min-h-[90px] border-b border-r border-slate-100 p-1.5 ${
-                        dayNum ? 'cursor-pointer hover:bg-slate-50' : ''
-                      } ${isSelected ? 'bg-socialflow-50 ring-1 ring-inset ring-socialflow-300' : ''}`}
-                      onClick={() => dayNum && selectDay(dateStr!)}
-                    >
-                      {dayNum && (
-                        <>
-                          <span
-                            className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-                              isToday ? 'bg-socialflow-600 text-white' : 'text-slate-600'
-                            }`}
-                          >
-                            {dayNum}
-                          </span>
-                          {count > 0 && (
-                            <div className="mt-0.5">
+                return (
+                  <div
+                    key={i}
+                    data-testid={dateStr ? `day-cell-${dateStr}` : 'day-cell-empty'}
+                    data-selected={isSelected ? 'true' : 'false'}
+                    className={`min-h-[70px] sm:min-h-[90px] border-b border-r border-slate-100 p-1.5 ${
+                      dayNum ? 'cursor-pointer hover:bg-slate-50' : ''
+                    } ${isSelected ? 'bg-socialflow-50 ring-1 ring-inset ring-socialflow-300' : ''} ${
+                      inProjectRange && dayNum ? 'bg-blue-50/50' : ''
+                    }`}
+                    onClick={() => dayNum && selectDay(dateStr!)}
+                  >
+                    {dayNum && (
+                      <>
+                        <span
+                          className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
+                            isToday ? 'bg-socialflow-600 text-white' : 'text-slate-600'
+                          }`}
+                        >
+                          {dayNum}
+                        </span>
+                        {dateStr && countsByTypeByDay[dateStr] && (
+                          <div className="mt-0.5 flex flex-wrap gap-0.5">
+                            {countsByTypeByDay[dateStr].content > 0 && (
                               <span className="inline-flex items-center rounded-full bg-socialflow-100 px-1.5 py-0.5 text-[10px] font-medium text-socialflow-700">
-                                {count}
+                                {countsByTypeByDay[dateStr].content}
                               </span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                            )}
+                            {countsByTypeByDay[dateStr].task > 0 && (
+                              <span className="inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                                {countsByTypeByDay[dateStr].task}
+                              </span>
+                            )}
+                            {countsByTypeByDay[dateStr].payment > 0 && (
+                              <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                                ${' '}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )
+              })}
             </div>
-          )}
+          </div>
 
           <div className="w-full lg:w-72 shrink-0">
             <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm">
@@ -341,60 +454,122 @@ export default function Calendar() {
                   {selectedItems.length === 0 ? (
                     <p className="text-xs text-slate-400">{t('calendar.noContentDay')}</p>
                   ) : (
-                    <div className="space-y-2">
-                      {selectedItems.map((item) => {
-                        const isPending = pendingTransitions[item.id] !== undefined
-                        const allowedNext = NEXT_STATUS[item.status] ?? []
-                        return (
-                          <div key={item.id} className="rounded-xl border border-slate-100 px-3 py-2.5">
-                            <Link
-                              to={`/dashboard/content-items/${item.id}`}
-                              className="text-sm font-semibold text-slate-900 truncate hover:text-socialflow-600 block rounded"
-                            >
-                              {item.title}
-                            </Link>
-                            <div className="flex gap-2 mt-1">
-                              <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[item.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                                {getStatusLabel(item.status)}
-                              </span>
-                              <span className="text-[10px] text-slate-400">{getPlatformLabel(item.platform)}</span>
-                            </div>
-                            {allowedNext.length > 0 && !isPending && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {allowedNext.map((next) => {
-                                  const nextLabel = getStatusLabel(next)
-                                  return (
-                                    <button
-                                      key={next}
-                                      onClick={() => handleSidebarTransition(item.id, next)}
-                                      disabled={isPending}
-                                      aria-label={t('calendar.ariaMoveTo', { status: nextLabel })}
-                                      className="rounded px-2 py-0.5 text-[10px] font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-                                    >
-                                      {nextLabel}
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            )}
-                            {isPending && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {allowedNext.map((next) => (
-                                  <button key={next} disabled className="rounded px-2 py-0.5 text-[10px] font-medium border border-slate-200 text-slate-400 opacity-50">
-                                    {getStatusLabel(next)}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                            <Link
-                              to={`/dashboard/content-items/${item.id}`}
-                              className="text-[10px] text-socialflow-600 hover:text-socialflow-700 mt-2 inline-block font-medium rounded"
-                            >
-                              {t('calendar.detailsAndComments')}
-                            </Link>
+                    <div className="space-y-4">
+                      {contentItems.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{t('calendar.sectionContent')}</p>
+                          <div className="space-y-2">
+                            {contentItems.map((item) => {
+                              const isPending = pendingTransitions[item.id] !== undefined
+                              const allowedNext = NEXT_STATUS[item.status] ?? []
+                              return (
+                                <div key={item.id} className="rounded-xl border border-slate-100 px-3 py-2.5">
+                                  <Link
+                                    to={`/dashboard/content-items/${item.id}`}
+                                    className="text-sm font-semibold text-slate-900 truncate hover:text-socialflow-600 block rounded"
+                                  >
+                                    {item.title}
+                                  </Link>
+                                  <div className="flex gap-2 mt-1">
+                                    <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_COLORS[item.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                                      {getStatusLabel(item.status)}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">{getPlatformLabel(item.platform)}</span>
+                                  </div>
+                                  {allowedNext.length > 0 && !isPending && (
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                      {allowedNext.map((next) => (
+                                        <button
+                                          key={next}
+                                          onClick={() => handleSidebarTransition(item.id, next)}
+                                          disabled={isPending}
+                                          className="rounded px-2 py-0.5 text-[10px] font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                                        >
+                                          {getStatusLabel(next)}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {isPending && (
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                      {allowedNext.map((next) => (
+                                        <button key={next} disabled className="rounded px-2 py-0.5 text-[10px] font-medium border border-slate-200 text-slate-400 opacity-50">
+                                          {getStatusLabel(next)}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <Link
+                                    to={`/dashboard/content-items/${item.id}`}
+                                    className="text-[10px] text-socialflow-600 hover:text-socialflow-700 mt-2 inline-block font-medium rounded"
+                                  >
+                                    {t('calendar.detailsAndComments')}
+                                  </Link>
+                                </div>
+                              )
+                            })}
                           </div>
-                        )
-                      })}
+                        </div>
+                      )}
+
+                      {taskItems.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider mb-1.5">{t('calendar.sectionTasks')}</p>
+                          <div className="space-y-2">
+                            {taskItems.map((item) => (
+                              <div key={item.id} className="rounded-xl border border-blue-100 bg-blue-50/30 px-3 py-2.5">
+                                <Link
+                                  to={`/dashboard/content-items/${item.id}`}
+                                  className="text-sm font-semibold text-slate-900 truncate hover:text-socialflow-600 block rounded"
+                                >
+                                  📋 {item.title}
+                                </Link>
+                                <div className="flex gap-2 mt-1">
+                                  <span className={`text-[10px] font-medium ${item.done ? 'text-green-600' : 'text-blue-600'}`}>
+                                    {item.done ? t('calendar.taskDone') : t('calendar.taskPending')}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {paymentItems.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-amber-500 uppercase tracking-wider mb-1.5">{t('calendar.sectionPayments')}</p>
+                          <div className="space-y-2">
+                            {paymentItems.map((item) => {
+                              const isPaid = item.payment_status === 'paid'
+                              return (
+                                <div key={item.id} className={`rounded-xl border px-3 py-2.5 ${isPaid ? 'border-green-200 bg-green-50/40' : 'border-amber-200 bg-amber-50/40'}`}>
+                                  <Link
+                                    to={`/dashboard/finances`}
+                                    className="text-sm font-semibold text-slate-900 truncate hover:text-socialflow-600 block rounded"
+                                  >
+                                    💰 {item.title}
+                                  </Link>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] font-medium text-slate-600">
+                                      {item.amount != null ? `$${item.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : ''}
+                                    </span>
+                                    <button
+                                      onClick={() => handleTogglePaymentStatus(item.id)}
+                                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+                                        isPaid
+                                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                          : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                      }`}
+                                    >
+                                      {isPaid ? t('finances.status.paid') : t('finances.status.pending')}
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>

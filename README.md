@@ -6,105 +6,111 @@ Content workflow management for community managers. Multi-tenant SaaS: Workspace
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Go 1.26 + chi + pgx/PostgreSQL |
-| Frontend | React 19 + TypeScript + Vite + Tailwind 4 + shadcn/ui |
-| Database | PostgreSQL 16 |
-| Infra | Docker Compose (dev) |
+| Backend | NestJS 11 + TypeScript 5.7 + Supabase JS Client |
+| Frontend | React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4 + shadcn/ui |
+| Database | PostgreSQL 16 (via Supabase) |
+| Auth | Passport.js + JWT in http-only cookies |
+| Testing | Jest (backend) + Vitest + Testing Library (frontend) |
 
 ## Architecture
 
 ```
-cmd/api/main.go          → entry point, config loader, DI wiring
-internal/
-├── domain/              → entities (User, Workspace, Client, ContentItem, Task, Comment),
-│                           enums (Role, ContentStatus, ContentPlatform, ContentType),
-│                           transition rules (draft→review→approved→published→archived)
-├── service/             → use cases with transaction boundaries:
-│                           AuthService (register, login, JWT), WorkspaceService (CRUD,
-│                           switch, invites, membership), ContentService (CRUD, status
-│                           transitions, calendar queries), ClientService, TaskService,
-│                           CommentService (immutable, delete-by-author), DashboardService
-├── store/               → pgx repositories with explicit workspace_id scoping on every query
-│   └── migrations/      → 001_init.sql: schema with indexes for performance
-└── http/                → chi handlers, auth/workspace/role middleware, unified JSON envelope
-web/                     → React SPA (Vite) with shadcn/ui components
+backend/src/
+├── main.ts                     → NestJS bootstrap, CORS, global pipes/filters
+├── app.module.ts               → Root module importing all feature modules
+├── supabase/                   → Supabase client (global module)
+├── auth/                       → Register, login, logout, JWT strategy
+├── workspaces/                 → CRUD, members, invites, switch
+├── clients/                    → Social account management
+├── content/                    → Content items, status transitions, calendar
+├── projects/                   → Project grouping for content items
+├── tasks/                      → Task management with assignees
+├── comments/                   → Immutable comments on content items
+├── dashboard/                  → Status counts, recent items, overdue tasks
+├── common/                     → Guards, decorators, interceptors, error handling
+│   ├── roles.guard.ts          → Role-based access control
+│   ├── workspace.guard.ts      → Workspace validation
+│   └── audit.interceptor.ts    → Audit logging
+└── database/migrations/        → SQL schema and RLS policies
+
+web/src/
+├── main.tsx                    → React entry point
+├── App.tsx                     → Router + layout + all routes
+├── i18n.ts                     → i18next (Spanish locale)
+├── context/                    → Auth context (MeContext)
+├── components/                 → Shared components (WorkspaceSwitcher)
+├── lib/                        → apiClient, labels, utils, helpers
+├── pages/                      → 11 pages (Login, Dashboard, Calendar, etc.)
+└── locales/es/                 → Spanish translations
 ```
 
 ### Security Design
 
 - **Authentication**: JWT in http-only cookies (`sf_token`). No localStorage tokens — reduces XSS blast radius.
 - **Multi-tenancy**: Every workspace-owned query accepts `workspace_id` explicitly (never from request body). Cross-tenant access returns 404 (never 403) — entity existence is never leaked.
-- **Role model**: `admin` (full control), `cm` (create/edit content/tasks/comments), `viewer` (read-only). Router-level guards enforce roles before handlers execute.
-- **Comment deletion**: Guarded at router level by cm/admin role in addition to author check in service. This is intentionally stricter than the spec (which allows author-only deletion) — keeps the MVP attack surface small and prevents privilege escalation.
+- **Role model**: `admin` (full control), `cm` (create/edit content/tasks/comments), `viewer` (read-only). Guard-level enforcement.
+- **RLS policies**: Row Level Security on all Supabase tables with helper PostgreSQL functions for authorization checks.
 
 ### Data Flow
 
 ```
 React page → apiClient (fetch, credentials:include)
-→ chi router → AuthMiddleware (JWT cookie parse → context)
-→ RequireWorkspace (validates active workspace_id)
-→ RequireRole (enforces role gate)
-→ handler → service (business logic + tx boundaries)
-→ store → PostgreSQL (workspace-scoped queries)
+→ Vite proxy (/api → localhost:8080)
+→ NestJS router → JwtAuthGuard (cookie → user)
+→ WorkspaceGuard (validates active workspace_id)
+→ RolesGuard (enforces role gate)
+→ Controller → Service (business logic)
+→ SupabaseService → PostgreSQL (workspace-scoped queries)
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- Go 1.23+
 - Node.js 20+
-- Docker & Docker Compose
-- PostgreSQL client (`psql`) for running migrations
+- npm
+- A [Supabase](https://supabase.com) project (or local PostgreSQL)
+- psql client (for running migrations)
 
-### 1. Start PostgreSQL
+### 1. Set up Supabase
+
+Create a Supabase project and get your URL and service role key from the Supabase dashboard.
+
+### 2. Run database migrations
+
+Run the SQL files in order via the Supabase SQL Editor or psql:
 
 ```bash
-docker compose up -d
+# Fresh start (drops everything):
+psql $DATABASE_URL -f backend/src/database/migrations/000_clean_slate.sql
+
+# Then run migrations in order:
+psql $DATABASE_URL -f backend/src/database/migrations/001_init.sql
+psql $DATABASE_URL -f backend/src/database/migrations/002_functions.sql
+psql $DATABASE_URL -f backend/src/database/migrations/003_projects.sql
+psql $DATABASE_URL -f backend/src/database/migrations/004_assignee.sql
+psql $DATABASE_URL -f backend/src/database/migrations/005_rls_policies.sql
 ```
 
-This starts PostgreSQL 16 on port 5432 with:
-- Database: `socialflow`
-- User: `socialflow`
-- Password: `socialflow`
-
-### 2. Configure environment
+### 3. Configure the backend
 
 ```bash
+cd backend
 cp .env.example .env
-# Edit .env with your secrets (see Environment Variables below)
-```
-
-### 3. Run migrations
-
-```bash
-# Using psql directly
-psql $DATABASE_URL -f internal/store/migrations/001_init.sql
-
-# Or from the connection string
-psql "postgres://socialflow:socialflow@localhost:5432/socialflow?sslmode=disable" \
-  -f internal/store/migrations/001_init.sql
+# Edit .env with your Supabase credentials and a secure JWT_SECRET
 ```
 
 ### 4. Start the API
 
 ```bash
-# Install Go dependencies
-go mod download
-
-# Run the server
-go run ./cmd/api
+cd backend
+npm install
+npm run start:dev
 ```
 
-The API starts at `http://localhost:8080`.
+The API starts at `http://localhost:8080` with all routes under `/api`.
 
-Verify it works:
-```bash
-curl http://localhost:8080/health
-# → {"status":"ok"}
-```
-
-### 5. Start the frontend (dev)
+### 5. Start the frontend
 
 ```bash
 cd web
@@ -122,12 +128,6 @@ All responses use a unified JSON envelope:
 
 Response codes: `200` OK, `201` Created, `204` No Content, `400` Bad Request, `401` Unauthorized, `403` Forbidden, `404` Not Found, `422` Unprocessable Entity, `500` Internal Server Error.
 
-### Health
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/health` | None | Health check — returns `{"status":"ok"}` |
-
 ### Auth (public — no auth required)
 
 | Method | Path | Body | Description |
@@ -140,7 +140,7 @@ Response codes: `200` OK, `201` Created, `204` No Content, `400` Bad Request, `4
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/me` | Cookie | Returns authenticated user profile with active workspace & role |
+| `GET` | `/api/auth/me` | Cookie | Returns authenticated user profile with active workspace & role |
 
 ### Workspaces
 
@@ -149,19 +149,19 @@ Response codes: `200` OK, `201` Created, `204` No Content, `400` Bad Request, `4
 | `GET` | `/api/workspaces` | Cookie | Any | List user's workspaces |
 | `POST` | `/api/workspaces` | Cookie | Any | Create workspace (creator becomes admin) |
 | `POST` | `/api/workspaces/switch` | Cookie | Any | Switch active workspace (re-signs JWT) — body: `{workspace_id}` |
-| `GET` | `/api/workspaces/{id}` | Cookie | Member | Get workspace details |
-| `PUT` | `/api/workspaces/{id}` | Cookie | Admin | Update workspace name |
-| `DELETE` | `/api/workspaces/{id}` | Cookie | Admin | Soft-delete workspace |
-| `GET` | `/api/workspaces/{id}/members` | Cookie | Member | List workspace members |
-| `PUT` | `/api/workspaces/{id}/members/{userID}` | Cookie | Admin | Change member role — body: `{role}` |
-| `DELETE` | `/api/workspaces/{id}/members/{userID}` | Cookie | Admin | Remove member (cannot remove self) |
-| `POST` | `/api/workspaces/{id}/invites` | Cookie | Admin | Create invite link — body: `{max_uses?, expires_in_hours?}` |
+| `GET` | `/api/workspaces/:id` | Cookie | Member | Get workspace details |
+| `PUT` | `/api/workspaces/:id` | Cookie | Admin | Update workspace name |
+| `DELETE` | `/api/workspaces/:id` | Cookie | Admin | Soft-delete workspace |
+| `GET` | `/api/workspaces/:id/members` | Cookie | Member | List workspace members |
+| `PUT` | `/api/workspaces/:id/members/:userId` | Cookie | Admin | Change member role — body: `{role}` |
+| `DELETE` | `/api/workspaces/:id/members/:userId` | Cookie | Admin | Remove member (cannot remove self) |
+| `POST` | `/api/workspaces/:id/invites` | Cookie | Admin | Create invite link — body: `{max_uses?, expires_in_hours?}` |
 
 ### Invites
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/invites/{token}/claim` | Cookie | Claim invite — joins workspace as viewer |
+| `POST` | `/api/invites/:token/claim` | Cookie | Claim invite — joins workspace as viewer |
 
 ### Clients (requires active workspace)
 
@@ -169,46 +169,36 @@ Response codes: `200` OK, `201` Created, `204` No Content, `400` Bad Request, `4
 |--------|------|------|------|-------------|
 | `GET` | `/api/clients` | Cookie | Any | List clients (scoped to active workspace) |
 | `POST` | `/api/clients` | Cookie | cm, admin | Create client — body: `{name, social_handles?, notes?, active?}` |
-| `GET` | `/api/clients/{id}` | Cookie | Any | Get client by ID |
-| `PUT` | `/api/clients/{id}` | Cookie | cm, admin | Update client |
-| `DELETE` | `/api/clients/{id}` | Cookie | cm, admin | Delete client |
+| `GET` | `/api/clients/:id` | Cookie | Any | Get client by ID |
+| `PUT` | `/api/clients/:id` | Cookie | cm, admin | Update client |
+| `DELETE` | `/api/clients/:id` | Cookie | cm, admin | Delete client |
 
 ### Content Items (requires active workspace)
 
 | Method | Path | Auth | Role | Description |
 |--------|------|------|------|-------------|
-| `GET` | `/api/content-items` | Cookie | Any | List content items — query: `?status=&client_id=` |
-| `POST` | `/api/content-items` | Cookie | cm, admin | Create content item (starts in `draft`) — body: `{title, platform, content_type, client_id?, description?, scheduled_date?}` |
-| `GET` | `/api/content-items/{id}` | Cookie | Any | Get content item with resolved comments |
-| `PUT` | `/api/content-items/{id}` | Cookie | cm, admin | Update content item |
-| `PATCH` | `/api/content-items/{id}/status` | Cookie | cm, admin | Transition status — body: `{status}` — returns 422 with `{from, to, allowed}` for invalid transitions |
+| `GET` | `/api/content-items` | Cookie | Any | List content items — query: `?status=&client_id=&project_id=` |
+| `POST` | `/api/content-items` | Cookie | cm, admin | Create content item (starts in `draft`) |
+| `GET` | `/api/content-items/:id` | Cookie | Any | Get content item with resolved comments |
+| `PUT` | `/api/content-items/:id` | Cookie | cm, admin | Update content item |
+| `PATCH` | `/api/content-items/:id/status` | Cookie | cm, admin | Transition status — body: `{status}` |
+| `POST` | `/api/content-items/:id/assign` | Cookie | cm, admin | Assign content item to a project member |
 
 **Content status workflow**: `draft → review → draft|approved → published → archived` (archived is terminal)
 
-**Status transition error (422)**:
-```json
-{
-  "error": {
-    "code": "invalid_transition",
-    "message": "cannot transition from draft to approved; allowed: [review]",
-    "details": {
-      "from": "draft",
-      "to": "approved",
-      "allowed": ["review"]
-    }
-  }
-}
-```
+**Supported platforms**: Instagram, Facebook, Twitter, LinkedIn, TikTok, YouTube
 
-### Comments (requires active workspace)
+**Content types**: Image, Video, Carousel, Story, Reel, Text, Link
+
+### Projects (requires active workspace)
 
 | Method | Path | Auth | Role | Description |
 |--------|------|------|------|-------------|
-| `GET` | `/api/content-items/{id}/comments` | Cookie | Any | List comments for a content item |
-| `POST` | `/api/content-items/{id}/comments` | Cookie | cm, admin | Add comment (immutable after creation) — body: `{body}` |
-| `DELETE` | `/api/comments/{commentID}` | Cookie | cm, admin | Delete comment (also requires author match in service) |
-
-**Note**: Comment deletion requires cm/admin role at router level — a viewer who authored a comment cannot delete it in MVP. This is intentionally stricter than the spec's "author-only" rule to minimize attack surface.
+| `GET` | `/api/projects` | Cookie | Any | List projects (scoped to active workspace) |
+| `POST` | `/api/projects` | Cookie | cm, admin | Create project — body: `{name, description?, start_date?, end_date?}` |
+| `GET` | `/api/projects/:id` | Cookie | Any | Get project with content items |
+| `PUT` | `/api/projects/:id` | Cookie | cm, admin | Update project |
+| `DELETE` | `/api/projects/:id` | Cookie | cm, admin | Delete project |
 
 ### Tasks (requires active workspace)
 
@@ -216,9 +206,17 @@ Response codes: `200` OK, `201` Created, `204` No Content, `400` Bad Request, `4
 |--------|------|------|------|-------------|
 | `GET` | `/api/tasks` | Cookie | Any | List tasks (scoped to active workspace) |
 | `POST` | `/api/tasks` | Cookie | cm, admin | Create task — body: `{title, description?, assignee_id?, due_date?, content_item_id?, client_id?}` |
-| `GET` | `/api/tasks/{id}` | Cookie | Any | Get task with optional content_item_id/client_id linkage |
-| `PUT` | `/api/tasks/{id}` | Cookie | cm, admin | Update task (including `done` flag) |
-| `DELETE` | `/api/tasks/{id}` | Cookie | cm, admin | Delete task |
+| `GET` | `/api/tasks/:id` | Cookie | Any | Get task |
+| `PUT` | `/api/tasks/:id` | Cookie | cm, admin | Update task (including `done` flag) |
+| `DELETE` | `/api/tasks/:id` | Cookie | cm, admin | Delete task |
+
+### Comments (requires active workspace)
+
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| `GET` | `/api/content-items/:id/comments` | Cookie | Any | List comments for a content item |
+| `POST` | `/api/content-items/:id/comments` | Cookie | cm, admin | Add comment (immutable after creation) — body: `{body}` |
+| `DELETE` | `/api/comments/:commentId` | Cookie | cm, admin | Delete comment (also requires author match) |
 
 ### Calendar (requires active workspace)
 
@@ -232,7 +230,7 @@ Response includes `items[]` and `counts_by_day` (per-day scheduled content count
 {
   "data": {
     "items": [
-      { "id": "...", "title": "...", "scheduled_date": "2026-05-15", "status": "approved", ... }
+      { "id": "...", "title": "...", "scheduled_date": "2026-05-15", "status": "approved" }
     ],
     "counts_by_day": { "2026-05-15": 3, "2026-05-20": 1 }
   }
@@ -245,8 +243,6 @@ Response includes `items[]` and `counts_by_day` (per-day scheduled content count
 |--------|------|------|-------------|
 | `GET` | `/api/dashboard` | Cookie | Dashboard aggregates — status counts, 10 most recent items, overdue task count |
 
-Response:
-
 ```json
 {
   "data": {
@@ -257,62 +253,86 @@ Response:
 }
 ```
 
-All 5 statuses are always present in `status_counts`, even with zero counts.
-
 ## Environment Variables
+
+### Backend (`backend/.env`)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8080` | API server port |
-| `DATABASE_URL` | `postgres://socialflow:socialflow@localhost:5432/socialflow?sslmode=disable` | PostgreSQL connection string |
-| `JWT_SECRET` | `dev-secret-change-me` | HMAC secret for JWT signing (min 32 bytes recommended) |
-| `JWT_EXPIRY_HOURS` | `72` | JWT cookie lifetime in hours |
-| `ENV` | `development` | Environment: `development` or `production` |
+| `NODE_ENV` | `development` | Environment: `development` or `production` |
+| `SUPABASE_URL` | — | Your Supabase project URL |
+| `SUPABASE_SERVICE_KEY` | — | Supabase service role key (bypasses RLS) |
+| `JWT_SECRET` | — | Secret for JWT signing (min 32 chars recommended) |
+| `JWT_EXPIRY_HOURS` | `1000` | JWT cookie lifetime in hours |
+
+### Frontend
+
+The frontend requires no environment variables. API requests are proxied via Vite's dev server to `localhost:8080`.
 
 ## Development
 
-### Running tests
+### Backend commands
 
 ```bash
-# All tests (scoped to project-owned packages)
-go test ./cmd/... ./internal/...
+cd backend
+npm run start:dev        # Start with watch mode
+npm run build            # Production build
+npm run start:prod       # Start production build
+npm test                 # Run tests
+npm run test:watch       # Run tests in watch mode
+npm run test:cov         # Run tests with coverage
+npm run lint             # Run ESLint
+```
 
-# HTTP handler tests (middleware + role guards + envelope consistency)
-go test ./internal/http -v
+### Frontend commands
 
-# Domain tests (status transitions, lifecycle)
-go test ./internal/domain -v
+```bash
+cd web
+npm run dev              # Start dev server with HMR
+npm run build            # Type-check + production build
+npm run preview          # Preview production build
+npm run test             # Run tests once
+npm run test:watch       # Run tests in watch mode
+npm run test:coverage    # Run tests with coverage
+npm run lint             # Run ESLint
 ```
 
 ### Project conventions
 
-- **Clean Architecture**: `domain → service → store → http` — no circular dependencies
-- **Workspace scoping**: Every store method accepts `workspace_id` explicitly — never omitted, never from request body
-- **Error envelope**: All error responses use `{"error":{"code","message","details?"}}` — error code matches HTTP semantic (`unauthorized`, `forbidden`, `not_found`, `bad_request`, `invalid_transition`, `internal`, `no_workspace`)
-- **Transactions**: Multi-table mutations use service-layer transactions (register, claim invite)
-- **HTTP-only cookies**: JWT stored in `sf_token` cookie, not localStorage
+- **NestJS modules**: Each feature is a self-contained module with controller, service, and DTOs
+- **Workspace scoping**: Every query scopes to the active workspace — never omitted
+- **Error envelope**: All errors use `{"error":{"code","message","details?"}}` format
+- **Internationalization**: Frontend UI is fully in Spanish (`locales/es/translation.json`)
+- **Path alias**: `@/` resolves to `web/src/` in the frontend
 
 ### Database schema
 
-Eight tables with workspace-scoped foreign keys and performance indexes:
-- `users` — authentication and profile
-- `workspaces` — multi-tenant containers (soft-delete supported)
-- `memberships` — unique `(workspace_id, user_id)` with role
-- `workspace_invites` — token-based invites with expiry and max uses
-- `clients` — social accounts with JSONB handles, unique partial index on `(workspace_id, lower(name))`
-- `content_items` — indexed by `(workspace_id, status)`, `(workspace_id, scheduled_date)`, `(workspace_id, updated_at desc)`
-- `comments` — indexed by `(content_item_id, created_at)`, joined with users for author info
-- `tasks` — indexed by `(workspace_id, due_date)`, partial index `(workspace_id, due_date) where done=false`
+10 tables with Row Level Security:
 
-See `internal/store/migrations/001_init.sql` for the full schema.
+| Table | Purpose |
+|-------|---------|
+| `users` | Authentication and profile |
+| `workspaces` | Multi-tenant containers (soft-delete supported) |
+| `memberships` | Unique `(workspace_id, user_id)` with role enum |
+| `workspace_invites` | Token-based invites with expiry and max uses |
+| `clients` | Social accounts with JSONB handles |
+| `projects` | Group content items with date ranges and assignees |
+| `content_items` | Social media content with status workflow |
+| `comments` | Immutable comments on content items |
+| `tasks` | Tasks with assignees, due dates, and content/client linkage |
+| `audit_logs` | Tracks INSERT/UPDATE/DELETE operations |
+
+See `backend/src/database/migrations/` for the full schema.
 
 ## Development Phases
 
-- [x] **Phase 0** — Repo foundation, Go + React skeletons, schema, config
+- [x] **Phase 0** — Repo foundation, NestJS + React skeletons, schema, config
 - [x] **Phase 1** — Auth & Workspaces
 - [x] **Phase 2** — Clients, Content Items & Comments
 - [x] **Phase 3** — Tasks, Calendar & Dashboard
-- [x] **Phase 4** — Tests & Verification (72 tests: 3 domain + 69 HTTP, all passing)
+- [x] **Phase 4** — Tests & Verification
+- [x] **Phase 5** — Projects
 
 ## License
 

@@ -1,4 +1,8 @@
 {
+  "common": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar"
+  },
   "app": {
     "title": "SocialFlow",
     "tagline": "Gestión de flujos de contenido para community managers.",
@@ -16,7 +20,8 @@
     "calendar": "Calendario",
     "tasks": "Tareas",
     "management": "Gestión",
-    "administration": "Administración"
+    "administration": "Administración",
+    "finances": "Finanzas"
   },
   "auth": {
     "loginTitle": "Iniciar sesión en SocialFlow",
@@ -67,7 +72,7 @@
     "newClientHeading": "Nuevo cliente",
     "loadingClients": "Cargando clientes...",
     "noClients": "Sin clientes aún. Creá tu primer cliente para empezar.",
-    "name": "Nombre *",
+    "name": "Nombre",
     "notes": "Notas",
     "active": "Activo",
     "inactive": "Inactivo",
@@ -100,19 +105,18 @@
     "createItem": "Crear elemento",
     "cancel": "Cancelar",
     "form": {
-      "title": "Título *",
+      "title": "Título",
       "description": "Descripción",
       "platform": "Plataforma",
-      "type": "Tipo",
+      "type": "Tipo de contenido",
       "client": "Cliente",
-      "scheduledDate": "Fecha programada",
-      "startDate": "Fecha inicial",
-      "endDate": "Fecha final",
+      "scheduledDate": "Fecha de publicación",
+      "startDate": "Fecha de inicio",
+      "endDate": "Fecha de fin",
       "project": "Proyecto",
-      "assignee": "Asignado a",
+      "assignee": "Responsable",
       "noProject": "— Sin proyecto —",
       "allProjects": "Todos los proyectos",
-      "noProject": "Sin proyecto",
       "noClient": "— Sin cliente —",
       "noAssignee": "— Sin asignar —",
       "titlePlaceholder": "ej. Campaña de verano",
@@ -142,6 +146,8 @@
     "addComment": "Agregar comentario",
     "noComments": "Sin comentarios aún.",
     "delete": "Eliminar",
+    "confirmDelete": "¿Estás seguro de que querés eliminar este elemento de contenido? Se eliminarán también los comentarios y tareas vinculadas.",
+    "confirmDeleteComment": "¿Estás seguro de que querés eliminar este comentario?",
     "detailsAndComments": "Detalles y comentarios →",
     "detailsAndCommentsShort": "Detalles y comentarios →",
     "tasks": "Tareas",
@@ -173,8 +179,15 @@
     "activeFilters": "Filtros activos:",
     "selectDay": "Seleccioná un día para ver el contenido programado",
     "noContentDay": "Sin contenido programado para este día.",
+    "sectionContent": "Contenido",
+    "sectionTasks": "Tareas",
+    "sectionPayments": "Pagos",
     "ariaMoveTo": "Mover a {{status}}",
-    "detailsAndComments": "Detalles y comentarios →"
+    "detailsAndComments": "Detalles y comentarios →",
+    "allProjects": "Todos los proyectos",
+    "taskDone": "Completada",
+    "taskPending": "Pendiente",
+    "payment": "Pago"
   },
   "tasks": {
     "title": "Tareas",
@@ -188,28 +201,31 @@
     "createTask": "Crear tarea",
     "cancel": "Cancelar",
     "form": {
-      "title": "Título *",
+      "title": "Título",
       "description": "Descripción",
       "assignee": "Responsable",
       "noAssignee": "— Sin asignar —",
-      "dueDate": "Fecha límite",
+      "startDate": "Fecha de inicio",
+      "endDate": "Fecha de fin",
       "markDone": "Marcar como completada",
-      "contentItemId": "ID de contenido (opcional)",
-      "clientId": "ID de cliente (opcional)",
+      "contentItem": "Contenido vinculado",
+      "contentItemPlaceholder": "Elegí un elemento de contenido...",
+      "client": "Cliente",
+      "clientPlaceholder": "Elegí un cliente...",
       "titlePlaceholder": "ej. Revisar borrador para post de IG",
-      "descriptionPlaceholder": "Detalles opcionales...",
-      "contentItemPlaceholder": "Vincular a un elemento de contenido...",
-      "clientPlaceholder": "Vincular a un cliente..."
+      "descriptionPlaceholder": "Detalles opcionales..."
     },
     "table": {
       "done": "Hecho",
       "title": "Título",
-      "due": "Vencimiento",
+      "startDate": "Inicio",
+      "endDate": "Fin",
       "linked": "Vinculado",
       "actions": "Acciones"
     },
     "edit": "Editar",
     "delete": "Eliminar",
+    "confirmDelete": "¿Estás seguro de que querés eliminar esta tarea?",
     "linkedContent": "📝 Contenido",
     "linkedClient": "👤 Cliente"
   },
@@ -237,11 +253,13 @@
   },
   "status": {
     "all": "Todos",
-    "draft": "Borrador",
-    "review": "Revisión",
-    "approved": "Aprobado",
-    "published": "Publicado",
-    "archived": "Archivado"
+    "pre_produccion": "Pre Producción",
+    "en_espera": "En Espera",
+    "en_edicion": "En Edición",
+    "validacion": "Validación",
+    "listo_para_subir": "Listo para Subir",
+    "subido": "Subido",
+    "archivado": "Archivado"
   },
   "platform": {
     "all": "Todas las plataformas",
@@ -269,6 +287,7 @@
     "copied": "¡Copiado!",
     "you": "vos",
     "remove": "Eliminar",
+    "confirmRemove": "¿Estás seguro de que querés eliminar a este miembro del espacio de trabajo?",
     "addMember": "Agregar miembro",
     "selectUser": "Seleccionar usuario",
     "selectUserPlaceholder": "Elegí un usuario...",
@@ -280,6 +299,11 @@
     "memberAdded": "Miembro agregado correctamente",
     "cancel": "Cancelar",
     "confirm": "Agregar",
+    "permissions": "Permisos",
+    "modulePermissions": "Permisos de módulos",
+    "accessAll": "Acceso total",
+    "savePermissions": "Guardar permisos",
+    "permissionsSaved": "Permisos guardados",
     "table": {
       "user": "Usuario",
       "role": "Rol",
@@ -301,20 +325,93 @@
     "cancel": "Cancelar",
     "edit": "Editar",
     "delete": "Eliminar",
+    "confirmDelete": "¿Estás seguro de que querés eliminar este proyecto?",
     "form": {
-      "name": "Nombre *",
+      "name": "Nombre",
       "description": "Descripción",
-      "startDate": "Fecha inicio",
-      "endDate": "Fecha fin",
+      "startDate": "Fecha de inicio",
+      "endDate": "Fecha de fin",
       "namePlaceholder": "ej. Campaña verano 2026",
       "assignee": "Responsable",
       "noAssignee": "— Sin asignar —",
-      "descriptionPlaceholder": "Descripción del proyecto..."
+      "client": "Cliente",
+      "noClient": "— Sin cliente —",
+      "descriptionPlaceholder": "Descripción del proyecto...",
+      "workspaces": "Espacios de trabajo",
+      "noWorkspaces": "Seleccioná al menos un espacio",
+      "currentWorkspace": "actual"
     }
   },
   "role": {
     "admin": "Administrador",
     "editor": "Editor",
-    "viewer": "Observador"
+    "viewer": "Observador",
+    "cm": "Community Manager"
+  },
+  "finances": {
+    "title": "Finanzas",
+    "newPayment": "+ Nuevo pago",
+    "editPayment": "Editar pago",
+    "newPaymentHeading": "Registrar nuevo pago",
+    "loadingPayments": "Cargando pagos...",
+    "noPayments": "Sin pagos aún. Registrá tu primer pago para empezar.",
+    "total": "Total",
+    "totalAmount": "Total del período",
+    "totalPaid": "Total cobrado",
+    "totalPending": "Total pendiente",
+    "confirmDelete": "¿Estás seguro de que querés eliminar este pago?",
+    "saving": "Guardando...",
+    "saveChanges": "Guardar cambios",
+    "createPayment": "Registrar pago",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "backToList": "← Volver a finanzas",
+    "status": {
+      "paid": "Cobrado",
+      "pending": "Pendiente"
+    },
+    "form": {
+      "client": "Cliente",
+      "clientPlaceholder": "Elegí un cliente...",
+      "amount": "Monto",
+      "paymentDate": "Fecha de pago",
+      "paymentMethod": "Método de pago",
+      "status": "Estado",
+      "notes": "Notas",
+      "amountPlaceholder": "ej. 15000",
+      "notesPlaceholder": "Detalles opcionales del pago..."
+    },
+    "methods": {
+      "transferencia": "Transferencia",
+      "efectivo": "Efectivo",
+      "tarjeta": "Tarjeta",
+      "otro": "Otro"
+    },
+    "table": {
+      "client": "Cliente",
+      "amount": "Monto",
+      "date": "Fecha",
+      "method": "Método",
+      "status": "Estado",
+      "notes": "Notas",
+      "actions": "Acciones"
+    },
+    "filter": {
+      "client": "Cliente",
+      "allClients": "Todos los clientes",
+      "startDate": "Desde",
+      "endDate": "Hasta"
+    }
+  },
+  "modules": {
+    "dashboard": "Panel",
+    "calendar": "Calendario",
+    "content": "Contenido",
+    "projects": "Proyectos",
+    "tasks": "Tareas",
+    "clients": "Clientes",
+    "members": "Miembros",
+    "finances": "Finanzas"
   }
 }

@@ -11,18 +11,43 @@ import { ErrMsg, InvalidReferenceError, InvalidFormatError } from '../common/err
 export class TasksService {
   constructor(private readonly supabase: SupabaseService) {}
 
+  private async getSharedProjectIds(workspaceId: string): Promise<string[]> {
+    const { data } = await this.supabase.db
+      .from('workspace_projects')
+      .select('project_id')
+      .eq('workspace_id', workspaceId);
+    return (data || []).map((r) => r.project_id);
+  }
+
   async list(workspaceId: string, filters?: { content_item_id?: string }) {
+    const sharedProjectIds = await this.getSharedProjectIds(workspaceId);
+
+    // Get content item IDs from shared projects
+    let sharedContentIds: string[] = [];
+    if (sharedProjectIds.length > 0) {
+      const { data: sharedContent } = await this.supabase.db
+        .from('content_items')
+        .select('id')
+        .in('project_id', sharedProjectIds);
+      sharedContentIds = (sharedContent || []).map((c) => c.id);
+    }
+
+    // Build the filter: workspace tasks OR tasks linked to shared project content items
+    const workspaceFilter = `workspace_id.eq.${workspaceId}`;
+    const sharedContentFilter = sharedContentIds.length > 0 ? `content_item_id.in.(${sharedContentIds.join(',')})` : '';
+    const filter = sharedContentFilter ? `${workspaceFilter},${sharedContentFilter}` : workspaceFilter;
+
     let query = this.supabase.db
       .from('tasks')
       .select('*')
-      .eq('workspace_id', workspaceId);
+      .or(filter);
 
     if (filters?.content_item_id) {
       query = query.eq('content_item_id', filters.content_item_id);
     }
 
     const { data } = await query
-      .order('due_date', { ascending: true, nullsFirst: false })
+      .order('end_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
 
     return data || [];
@@ -42,7 +67,8 @@ export class TasksService {
         title: dto.title,
         description: dto.description || '',
         assignee_id: dto.assignee_id || null,
-        due_date: this.normalizeDate(dto.due_date),
+        start_date: this.normalizeDate(dto.start_date),
+        end_date: this.normalizeDate(dto.end_date),
         done: dto.done ?? false,
         content_item_id: dto.content_item_id || null,
         client_id: dto.client_id || null,
@@ -81,7 +107,8 @@ export class TasksService {
         title: dto.title,
         description: dto.description || '',
         assignee_id: dto.assignee_id || null,
-        due_date: this.normalizeDate(dto.due_date),
+        start_date: this.normalizeDate(dto.start_date),
+        end_date: this.normalizeDate(dto.end_date),
         done: dto.done ?? false,
         content_item_id: dto.content_item_id || null,
         client_id: dto.client_id || null,
@@ -141,11 +168,13 @@ export class TasksService {
   }
 
   private async validateContentInWorkspace(contentItemId: string, workspaceId: string) {
+    const sharedProjectIds = await this.getSharedProjectIds(workspaceId);
+
     const { data } = await this.supabase.db
       .from('content_items')
       .select('id')
       .eq('id', contentItemId)
-      .eq('workspace_id', workspaceId)
+      .or(`workspace_id.eq.${workspaceId}${sharedProjectIds.length > 0 ? `,project_id.in.(${sharedProjectIds.join(',')})` : ''}`)
       .single();
 
     if (!data) throw new InvalidReferenceError('content_item_id', 'el elemento de contenido no pertenece a este espacio de trabajo');

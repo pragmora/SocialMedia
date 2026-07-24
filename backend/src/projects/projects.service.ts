@@ -12,10 +12,19 @@ export class ProjectsService {
   constructor(private readonly supabase: SupabaseService) {}
 
   async list(workspaceId: string) {
+    const { data: wpLinks } = await this.supabase.db
+      .from('workspace_projects')
+      .select('project_id')
+      .eq('workspace_id', workspaceId);
+
+    if (!wpLinks || wpLinks.length === 0) return [];
+
+    const projectIds = wpLinks.map((wp) => wp.project_id);
+
     const { data } = await this.supabase.db
       .from('projects')
-      .select('id, workspace_id, name, description, start_date, end_date, assignee_id, created_at, updated_at')
-      .eq('workspace_id', workspaceId)
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
+      .in('id', projectIds)
       .is('deleted_at', null)
       .order('name');
 
@@ -37,28 +46,50 @@ export class ProjectsService {
         description: dto.description || '',
         start_date: this.normalizeDate(dto.start_date),
         end_date: this.normalizeDate(dto.end_date),
+        client_id: dto.client_id || null,
         assignee_id: dto.assignee_id || null,
         created_by: userId,
         updated_by: userId,
       })
-      .select('id, workspace_id, name, description, start_date, end_date, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
       .single();
 
     if (error) throw error;
-    return data;
+
+    const workspaceIds = dto.workspace_ids && dto.workspace_ids.length > 0
+      ? dto.workspace_ids
+      : [workspaceId];
+
+    const links = workspaceIds.map((wid) => ({
+      workspace_id: wid,
+      project_id: data.id,
+    }));
+
+    await this.supabase.db
+      .from('workspace_projects')
+      .insert(links);
+
+    return { ...data, workspace_ids: workspaceIds };
   }
 
   async get(workspaceId: string, id: string) {
     const { data } = await this.supabase.db
       .from('projects')
-      .select('id, workspace_id, name, description, start_date, end_date, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
       .eq('id', id)
-      .eq('workspace_id', workspaceId)
       .is('deleted_at', null)
       .single();
 
     if (!data) throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
-    return data;
+
+    const { data: wpLinks } = await this.supabase.db
+      .from('workspace_projects')
+      .select('workspace_id')
+      .eq('project_id', id);
+
+    const workspaceIds = (wpLinks || []).map((wp) => wp.workspace_id);
+
+    return { ...data, workspace_ids: workspaceIds };
   }
 
   async update(workspaceId: string, userId: string, id: string, dto: UpdateProjectDto) {
@@ -75,18 +106,40 @@ export class ProjectsService {
         description: dto.description || '',
         start_date: this.normalizeDate(dto.start_date),
         end_date: this.normalizeDate(dto.end_date),
+        client_id: dto.client_id || null,
         assignee_id: dto.assignee_id || null,
         updated_by: userId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('workspace_id', workspaceId)
       .is('deleted_at', null)
-      .select('id, workspace_id, name, description, start_date, end_date, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
       .single();
 
     if (!data) throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
-    return data;
+
+    if (dto.workspace_ids && dto.workspace_ids.length > 0) {
+      await this.supabase.db
+        .from('workspace_projects')
+        .delete()
+        .eq('project_id', id);
+
+      const links = dto.workspace_ids.map((wid) => ({
+        workspace_id: wid,
+        project_id: id,
+      }));
+
+      await this.supabase.db
+        .from('workspace_projects')
+        .insert(links);
+    }
+
+    const { data: wpLinks } = await this.supabase.db
+      .from('workspace_projects')
+      .select('workspace_id')
+      .eq('project_id', id);
+
+    return { ...data, workspace_ids: (wpLinks || []).map((wp) => wp.workspace_id) };
   }
 
   async delete(workspaceId: string, id: string) {
@@ -94,7 +147,6 @@ export class ProjectsService {
       .from('projects')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('workspace_id', workspaceId)
       .is('deleted_at', null);
 
     if (error) throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
@@ -112,13 +164,41 @@ export class ProjectsService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('workspace_id', workspaceId)
       .is('deleted_at', null)
-      .select('id, workspace_id, name, description, start_date, end_date, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, assignee_id, created_at, updated_at')
       .single();
 
-    if (error) throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
+    if (error || !data) throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
     return data;
+  }
+
+  async listAllForWorkspaceSwitch(userId: string) {
+    const { data: memberships } = await this.supabase.db
+      .from('memberships')
+      .select('workspace_id')
+      .eq('user_id', userId);
+
+    if (!memberships || memberships.length === 0) return [];
+
+    const workspaceIds = memberships.map((m) => m.workspace_id);
+
+    const { data: wpLinks } = await this.supabase.db
+      .from('workspace_projects')
+      .select('project_id, workspace_id')
+      .in('workspace_id', workspaceIds);
+
+    if (!wpLinks || wpLinks.length === 0) return [];
+
+    const projectIds = [...new Set(wpLinks.map((wp) => wp.project_id))];
+
+    const { data } = await this.supabase.db
+      .from('projects')
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
+      .in('id', projectIds)
+      .is('deleted_at', null)
+      .order('name');
+
+    return data || [];
   }
 
   private async validateMemberInWorkspace(userId: string, workspaceId: string) {

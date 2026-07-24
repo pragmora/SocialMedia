@@ -18,7 +18,11 @@ export class CreateTaskDto {
 
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'formato de fecha debe ser YYYY-MM-DD' })
-  due_date?: string;
+  start_date?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'formato de fecha debe ser YYYY-MM-DD' })
+  end_date?: string;
 
   @IsBoolean()
   @IsOptional()
@@ -44,7 +48,11 @@ export class UpdateTaskDto {
 
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'formato de fecha debe ser YYYY-MM-DD' })
-  due_date?: string;
+  start_date?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'formato de fecha debe ser YYYY-MM-DD' })
+  end_date?: string;
 
   @IsBoolean()
   @IsOptional()

@@ -266,6 +266,68 @@ export class WorkspacesService {
     return membership;
   }
 
+  async getModulePermissions(workspaceId: string, targetUserId: string) {
+    const { data } = await this.supabase.db
+      .from('workspace_module_permissions')
+      .select('module_key, enabled')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', targetUserId);
+
+    return data || [];
+  }
+
+  async setModulePermissions(workspaceId: string, targetUserId: string, modules: { module_key: string; enabled: boolean }[]) {
+    const validModules = ['dashboard', 'calendar', 'content', 'projects', 'tasks', 'clients', 'members', 'finances'];
+
+    const rows = modules
+      .filter((m) => validModules.includes(m.module_key))
+      .map((m) => ({
+        workspace_id: workspaceId,
+        user_id: targetUserId,
+        module_key: m.module_key,
+        enabled: m.enabled,
+      }));
+
+    if (rows.length === 0) return [];
+
+    // Delete existing and re-insert
+    await this.supabase.db
+      .from('workspace_module_permissions')
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', targetUserId);
+
+    const { data, error } = await this.supabase.db
+      .from('workspace_module_permissions')
+      .insert(rows)
+      .select('module_key, enabled');
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getUserModules(workspaceId: string, userId: string): Promise<string[]> {
+    // Admin always gets all modules
+    const membership = await this.getMembership(userId, workspaceId);
+    if (membership?.role === 'admin') {
+      return ['dashboard', 'calendar', 'content', 'projects', 'tasks', 'clients', 'members', 'finances'];
+    }
+
+    const { data } = await this.supabase.db
+      .from('workspace_module_permissions')
+      .select('module_key')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .eq('enabled', true);
+
+    if (!data || data.length === 0) {
+      // No permissions configured = all modules enabled (fallback)
+      return ['dashboard', 'calendar', 'content', 'projects', 'tasks', 'clients', 'members', 'finances'];
+    }
+
+    return data.map((r) => r.module_key);
+  }
+
   private async getMembership(userId: string, workspaceId: string) {
     const { data } = await this.supabase.db
       .from('memberships')

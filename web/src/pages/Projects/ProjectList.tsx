@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 interface Project {
   id: string
@@ -25,6 +26,7 @@ export default function ProjectList() {
   const [members, setMembers] = useState<Record<string, WorkspaceMember>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const loadProjects = useCallback(async () => {
     setLoading(true)
@@ -50,6 +52,7 @@ export default function ProjectList() {
   }, [loadProjects])
 
   async function handleDelete(id: string) {
+    setDeleteId(null)
     const res = await apiClient.delete(`/projects/${id}`)
     if (res.error) {
       setError(res.error.message)
@@ -122,7 +125,7 @@ export default function ProjectList() {
                   {t('projects.edit')}
                 </Link>
                 <button
-                  onClick={() => handleDelete(project.id)}
+                  onClick={() => setDeleteId(project.id)}
                   className="text-xs text-red-500 hover:text-red-700 font-semibold"
                 >
                   {t('projects.delete')}
@@ -132,6 +135,14 @@ export default function ProjectList() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        title={t('projects.delete')}
+        message={t('projects.confirmDelete')}
+        onConfirm={() => deleteId && handleDelete(deleteId)}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   )
 }

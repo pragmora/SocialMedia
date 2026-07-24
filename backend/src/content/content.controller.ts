@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -12,13 +13,14 @@ import {
 import { ContentService } from './content.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
+import { WorkspaceGuard } from '../common/workspace.guard';
 import { WorkspaceId } from '../common/workspace.decorator';
 import { Roles } from '../common/roles.decorator';
 import { RolesGuard } from '../common/roles.guard';
 import { CreateContentDto, UpdateContentDto, TransitionStatusDto } from './dto';
 
 @Controller('content-items')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, WorkspaceGuard, RolesGuard)
 export class ContentController {
   constructor(private readonly svc: ContentService) {}
 
@@ -82,5 +84,11 @@ export class ContentController {
     @Body() dto: TransitionStatusDto,
   ) {
     return this.svc.transitionStatus(wsId, id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('admin', 'cm')
+  delete(@WorkspaceId() wsId: string, @Param('id') id: string) {
+    return this.svc.delete(wsId, id);
   }
 }
