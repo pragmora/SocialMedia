@@ -37,7 +37,7 @@ function TestConsumer() {
       <button
         data-testid="login-btn"
         onClick={() =>
-          login({ id: '99', email: 'manual@test.com', active_workspace_id: 'ws1', role: 'admin' })
+          login({ id: '99', email: 'manual@test.com', active_workspace_id: 'ws1', role: 'admin', modules: [] })
         }
       >
         Login Manually
