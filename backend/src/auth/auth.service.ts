@@ -29,7 +29,7 @@ export class AuthService {
       .from('users')
       .select('id')
       .eq('email', dto.email)
-      .single();
+      .maybeSingle();
 
     if (existErr) {
       throw new InternalServerErrorException({
