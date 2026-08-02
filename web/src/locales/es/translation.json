@@ -45,8 +45,8 @@
     "refresh": "Actualizar",
     "loadingDashboard": "Cargando panel...",
     "failedToLoad": "Error al cargar el panel",
-    "newContent": "+ Nuevo contenido",
-    "newTask": "+ Nueva tarea",
+    "newContent": "Nuevo contenido",
+    "newTask": "Nueva tarea",
     "recentContent": "Contenido reciente",
     "recentContentTotal": "Contenido reciente ({{count}} total)",
     "total_one": "Contenido reciente ({{count}} total)",
@@ -62,7 +62,7 @@
   },
   "clients": {
     "title": "Clientes",
-    "newClient": "+ Nuevo cliente",
+    "newClient": "Nuevo cliente",
     "editClient": "Editar cliente",
     "newClientHeading": "Nuevo cliente",
     "loadingClients": "Cargando clientes...",
@@ -87,7 +87,7 @@
   },
   "content": {
     "title": "Elementos de contenido",
-    "newItem": "+ Nuevo elemento",
+    "newItem": "Nuevo elemento",
     "editContentItem": "Editar elemento",
     "newContentItem": "Nuevo elemento",
     "loadingContent": "Cargando contenido...",
@@ -178,7 +178,7 @@
   },
   "tasks": {
     "title": "Tareas",
-    "newTask": "+ Nueva tarea",
+    "newTask": "Nueva tarea",
     "editTask": "Editar tarea",
     "newTaskHeading": "Nueva tarea",
     "loadingTasks": "Cargando tareas...",
@@ -289,7 +289,7 @@
   },
   "projects": {
     "title": "Proyectos",
-    "newProject": "+ Nuevo proyecto",
+    "newProject": "Nuevo proyecto",
     "editProject": "Editar proyecto",
     "newProjectHeading": "Nuevo proyecto",
     "loadingProjects": "Cargando proyectos...",
