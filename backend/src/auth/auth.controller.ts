@@ -39,7 +39,12 @@ export class AuthController {
 
   @Post('auth/logout')
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('sf_token', { path: '/' });
+    const isProd = process.env.NODE_ENV === 'production';
+    res.clearCookie('sf_token', {
+      path: '/',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
+    });
     return { message: 'sesión cerrada' };
   }
 
@@ -90,10 +95,11 @@ export class AuthController {
 
   private setCookie(res: Response, token: string) {
     const hours = parseInt(process.env.JWT_EXPIRY_HOURS || '72', 10);
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('sf_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       path: '/',
       maxAge: hours * 3600 * 1000,
     });
