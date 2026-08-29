@@ -22,18 +22,16 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-// ── THE KEY: augment the shared NEXT_STATUS map ────────────────────
-// Adding 'rejected' to review transitions. Both Calendar and ContentDetail
-// import from @/lib/statusTransitions, so this ONE mock propagates to both.
-vi.mock('@/lib/statusTransitions', () => ({
-  NEXT_STATUS: {
-    draft: ['review', 'approved', 'published', 'archived'],
-    review: ['draft', 'approved', 'published', 'archived', 'rejected'],
-    approved: ['draft', 'review', 'published', 'archived'],
-    published: ['draft', 'review', 'approved', 'archived'],
-    archived: ['draft', 'review', 'approved', 'published'],
-  },
-}))
+// ── THE KEY: mock the shared NEXT_STATUS map (8 canonical statuses) ─
+// Both Calendar and ContentDetail import from @/lib/statusTransitions,
+// so this ONE mock propagates to both. 'en_pausa' is an extra transition
+// target added ONLY here to prove both consumers read from this shared map.
+vi.mock('@/lib/statusTransitions', () => {
+  const ALL = ['pre_produccion', 'en_espera', 'en_edicion', 'validacion', 'listo_para_subir', 'subido', 'archivado']
+  const NEXT_STATUS: Record<string, string[]> = {}
+  for (const s of ALL) NEXT_STATUS[s] = [...ALL.filter((t) => t !== s), 'en_pausa']
+  return { NEXT_STATUS }
+})
 
 import Calendar from '@/pages/Calendar/Calendar'
 import ContentDetail from '@/pages/ContentItems/ContentDetail'
@@ -42,15 +40,25 @@ import { useParams } from 'react-router-dom'
 const dateStr = '2026-05-15'
 const monthStr = '2026-05'
 
-// ── status-transitions-shared S3.1: Calendar sees augmented map ────
+// Helper: route /projects, /clients, /members to [] and everything else (calendar query) to the payload
+function mockApi(calendarData: unknown) {
+  mockGet.mockImplementation((url: string) => {
+    if (url.startsWith('/projects') || url.startsWith('/clients') || url.startsWith('/members')) {
+      return Promise.resolve({ data: [] })
+    }
+    return Promise.resolve(calendarData)
+  })
+}
+
+// ── Shared NEXT_STATUS propagation — Calendar ───────────────────────
 describe('Shared NEXT_STATUS propagation — Calendar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useParams).mockReturnValue({})
   })
 
-  it('renders "Rejected" transition button for a review item (added to shared map)', async () => {
-    mockGet.mockResolvedValue({
+  it('renders a transition added to the shared map for a pre_produccion sidebar item', async () => {
+    mockApi({
       data: {
         items: [
           {
@@ -58,7 +66,7 @@ describe('Shared NEXT_STATUS propagation — Calendar', () => {
             title: 'Review Item',
             platform: 'instagram',
             content_type: 'post',
-            status: 'review',
+            status: 'pre_produccion',
             scheduled_date: dateStr,
           },
         ],
@@ -74,23 +82,22 @@ describe('Shared NEXT_STATUS propagation — Calendar', () => {
       expect(screen.queryAllByTestId('skeleton-cell')).toHaveLength(0)
     })
 
-    // Original transitions still present
-    expect(screen.getByRole('button', { name: 'Mover a Borrador' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Mover a Aprobado' })).toBeInTheDocument()
+    // Canonical transition derived from the shared map
+    expect(screen.getByRole('button', { name: 'Mover a En Espera' })).toBeInTheDocument()
 
-    // NEW transition from the augmented shared map
-    expect(screen.getByRole('button', { name: 'Mover a rejected' })).toBeInTheDocument()
+    // Augmented transition from the shared map (raw status label fallback)
+    expect(screen.getByRole('button', { name: 'Mover a en_pausa' })).toBeInTheDocument()
   })
 })
 
-// ── status-transitions-shared S3.1: ContentDetail sees the SAME augmented map
+// ── Shared NEXT_STATUS propagation — ContentDetail ──────────────────
 describe('Shared NEXT_STATUS propagation — ContentDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useParams).mockReturnValue({ id: 'ci-r1' })
   })
 
-  it('renders "Rejected" transition button for a review item (added to shared map)', async () => {
+  it('renders a transition added to the shared map for an en_espera item', async () => {
     mockGet.mockResolvedValue({
       data: {
         id: 'ci-r1',
@@ -100,7 +107,7 @@ describe('Shared NEXT_STATUS propagation — ContentDetail', () => {
         description: '',
         platform: 'instagram',
         content_type: 'post',
-        status: 'review',
+        status: 'en_espera',
         scheduled_date: null,
         created_by: 'user1',
         created_at: '2026-05-01T00:00:00Z',
@@ -115,12 +122,12 @@ describe('Shared NEXT_STATUS propagation — ContentDetail', () => {
       expect(screen.getByText('Review Item')).toBeInTheDocument()
     })
 
-    // Original transitions still present
-    expect(screen.getByRole('button', { name: 'Borrador' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Aprobado' })).toBeInTheDocument()
+    // Canonical transitions derived from the shared map
+    expect(screen.getByRole('button', { name: 'En Edición' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Validación' })).toBeInTheDocument()
 
-    // NEW transition from the augmented shared map — ContentDetail buttons
-    // use text content as accessible name (no aria-label), so fallback is raw 'rejected'
-    expect(screen.getByRole('button', { name: 'rejected' })).toBeInTheDocument()
+    // Augmented transition from the shared map — ContentDetail buttons
+    // use text content as accessible name (no aria-label), so fallback is raw 'en_pausa'
+    expect(screen.getByRole('button', { name: 'en_pausa' })).toBeInTheDocument()
   })
 })

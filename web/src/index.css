@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-socialflow-50: #f0f4ff;
   --color-socialflow-100: #dbe4ff;
@@ -35,10 +37,21 @@ html {
   scroll-behavior: smooth;
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body,
+body * {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
 
 h1, h2, h3, h4, h5, h6 {

@@ -36,6 +36,9 @@ describe('TaskForm — fetching-state behavior preservation (lint hardening)', (
   it('in create mode, fetching=false, form renders immediately without Loading... text', async () => {
     vi.mocked(useParams).mockReturnValue({})
 
+    // Preloads (members/content-items/clients/projects) fire even in create mode
+    mockGet.mockResolvedValue({ data: [] })
+
     renderWithRouter(<TaskForm />)
 
     // Heading must render immediately
@@ -47,7 +50,7 @@ describe('TaskForm — fetching-state behavior preservation (lint hardening)', (
     expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
 
     // Form fields must be visible
-    expect(screen.getByLabelText('Título *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Título')).toBeInTheDocument()
     expect(screen.getByLabelText('Descripción')).toBeInTheDocument()
 
     // Create button label
@@ -57,16 +60,21 @@ describe('TaskForm — fetching-state behavior preservation (lint hardening)', (
   it('in edit mode, fetching starts as true, shows Loading..., then pre-fills form fields', async () => {
     vi.mocked(useParams).mockReturnValue({ id: 'task-789' })
 
-    mockGet.mockResolvedValue({
-      data: {
-        title: 'Review Instagram draft',
-        description: 'Check grammar and branding',
-        assignee_id: null,
-        due_date: '2026-06-20',
-        content_item_id: null,
-        client_id: null,
-        done: false,
-      },
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/tasks/task-789') {
+        return Promise.resolve({
+          data: {
+            title: 'Review Instagram draft',
+            description: 'Check grammar and branding',
+            assignee_id: null,
+            end_date: '2026-06-20',
+            content_item_id: null,
+            client_id: null,
+            done: false,
+          },
+        })
+      }
+      return Promise.resolve({ data: [] }) // preloads (members/content-items/clients/projects)
     })
 
     renderWithRouter(<TaskForm />)
@@ -83,12 +91,12 @@ describe('TaskForm — fetching-state behavior preservation (lint hardening)', (
     })
 
     // Title field must be pre-filled
-    const titleInput = screen.getByLabelText('Título *') as HTMLInputElement
+    const titleInput = screen.getByLabelText('Título') as HTMLInputElement
     expect(titleInput.value).toBe('Review Instagram draft')
 
-    // Due date must be pre-filled
-    const dueInput = screen.getByLabelText('Fecha límite') as HTMLInputElement
-    expect(dueInput.value).toBe('2026-06-20')
+    // End date must be pre-filled
+    const endDateInput = screen.getByLabelText('Fecha de fin') as HTMLInputElement
+    expect(endDateInput.value).toBe('2026-06-20')
 
     // Done checkbox must appear in edit mode
     expect(screen.getByLabelText('Marcar como completada')).toBeInTheDocument()
@@ -99,6 +107,9 @@ describe('TaskForm — fetching-state behavior preservation (lint hardening)', (
 
   it('in create mode, done checkbox is NOT rendered', async () => {
     vi.mocked(useParams).mockReturnValue({})
+
+    // Preloads fire even in create mode
+    mockGet.mockResolvedValue({ data: [] })
 
     renderWithRouter(<TaskForm />)
 

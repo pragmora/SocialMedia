@@ -3,12 +3,19 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
+import {
+  applyOverrides,
+  getRolePreset,
+  matrixPermissions,
+  allPermissions,
+} from '../permissions/permissions.constants';
 
 export interface JwtPayload {
   sub: string;
   email: string;
   wid?: string;
   rol?: string;
+  is_superadmin?: boolean;
 }
 
 @Injectable()
@@ -39,7 +46,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const { data: user, error: userError } = await this.supabase.db
       .from('users')
-      .select('id')
+      .select('id, is_superadmin')
       .eq('id', payload.sub)
       .single();
 
@@ -65,9 +72,32 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
+    // El superadmin global opera como admin en cualquier workspace.
+    if (user.is_superadmin && !rol) rol = 'admin';
+
     request.workspaceId = wid;
     request.membershipRole = rol;
+    request.isSuperadmin = !!user.is_superadmin;
 
-    return { ...payload, wid, rol };
+    // Permisos efectivos por acción para el workspace activo.
+    // Los admins y superadmins tienen acceso total; el resto usa el preset
+    // del rol más los overrides configurados por el admin.
+    if (user.is_superadmin || rol === 'admin') {
+      request.permissions = matrixPermissions(allPermissions());
+    } else if (wid) {
+      const { data: overrides } = await this.supabase.db
+        .from('workspace_module_permissions')
+        .select('module_key, action, enabled')
+        .eq('workspace_id', wid)
+        .eq('user_id', payload.sub);
+
+      request.permissions = matrixPermissions(
+        applyOverrides(getRolePreset(rol), overrides || []),
+      );
+    } else {
+      request.permissions = {};
+    }
+
+    return { ...payload, wid, rol, is_superadmin: request.isSuperadmin };
   }
 }

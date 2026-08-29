@@ -13,7 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { WorkspaceGuard } from '../common/workspace.guard';
 import { RolesGuard } from '../common/roles.guard';
 import { Roles } from '../common/roles.decorator';
-import { CurrentUser } from '../common/current-user.decorator';
+import { CurrentUser, IsSuperadmin } from '../common/current-user.decorator';
 import { WorkspaceId } from '../common/workspace.decorator';
 import { CreateWorkspaceDto, UpdateWorkspaceDto, CreateInviteDto, UpdateMemberRoleDto, AddMemberDto } from './dto';
 
@@ -23,8 +23,8 @@ export class WorkspacesController {
   constructor(private readonly svc: WorkspacesService) {}
 
   @Get('workspaces')
-  list(@CurrentUser('sub') userId: string) {
-    return this.svc.list(userId);
+  list(@CurrentUser('sub') userId: string, @IsSuperadmin() isSuperadmin: boolean) {
+    return this.svc.list(userId, isSuperadmin);
   }
 
   @Post('workspaces')
@@ -52,6 +52,8 @@ export class WorkspacesController {
   }
 
   @Get('users')
+  @UseGuards(WorkspaceGuard, RolesGuard)
+  @Roles('admin')
   listAllUsers() {
     return this.svc.listAllUsers();
   }
@@ -130,8 +132,8 @@ export class WorkspacesController {
   setModulePermissions(
     @Param('id') workspaceId: string,
     @Param('userId') targetUserId: string,
-    @Body() body: { modules: { module_key: string; enabled: boolean }[] },
+    @Body() body: { permissions: { module_key: string; action: string; enabled: boolean }[] },
   ) {
-    return this.svc.setModulePermissions(workspaceId, targetUserId, body.modules);
+    return this.svc.setModulePermissions(workspaceId, targetUserId, body.permissions);
   }
 }

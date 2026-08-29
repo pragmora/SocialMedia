@@ -4,13 +4,20 @@ export const PLATFORM_OPTIONS = ['all', 'instagram', 'facebook', 'twitter', 'lin
 
 // ── Query Builder ───────────────────────────────────────────────────
 export function buildCalendarQuery(params: {
-  month: string
+  month?: string
+  year?: string
   status?: string
   platform?: string
   project_id?: string
   client_id?: string
+  assignee_id?: string
 }): string {
-  const parts: string[] = [`month=${params.month}`]
+  const parts: string[] = []
+  if (params.year) {
+    parts.push(`year=${params.year}`)
+  } else if (params.month) {
+    parts.push(`month=${params.month}`)
+  }
   if (params.status && params.status !== 'all') {
     parts.push(`status=${params.status}`)
   }
@@ -22,6 +29,9 @@ export function buildCalendarQuery(params: {
   }
   if (params.client_id) {
     parts.push(`client_id=${params.client_id}`)
+  }
+  if (params.assignee_id) {
+    parts.push(`assignee_id=${params.assignee_id}`)
   }
   return `/calendar?${parts.join('&')}`
 }

@@ -131,6 +131,8 @@ export class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${path}`
 
+    const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
+
     const config: RequestInit = {
       method,
       credentials: 'include',
@@ -138,7 +140,14 @@ export class ApiClient {
     }
 
     if (body && method !== 'GET' && method !== 'HEAD') {
-      config.body = JSON.stringify(body)
+      if (isFormData) {
+        // Dejamos que el navegador fije el Content-Type con su boundary
+        config.headers = mergeHeaders(options?.headers)
+        config.headers.delete('Content-Type')
+        config.body = body
+      } else {
+        config.body = JSON.stringify(body)
+      }
     }
 
     // Cherry-pick caller options that don't conflict with our defaults

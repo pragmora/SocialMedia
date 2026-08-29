@@ -8,6 +8,8 @@ export interface CurrentUser {
   role: string
   name?: string
   modules: string[]
+  is_superadmin?: boolean
+  permissions?: Record<string, string[]>
 }
 
 interface MeContextValue {

@@ -12,16 +12,17 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { WorkspaceGuard } from '../common/workspace.guard';
 import { WorkspaceId } from '../common/workspace.decorator';
-import { Roles } from '../common/roles.decorator';
-import { RolesGuard } from '../common/roles.guard';
+import { PermissionGuard } from '../common/permission.guard';
+import { Permission } from '../common/permission.decorator';
 import { CreateCommentDto } from './dto';
 
 @Controller()
-@UseGuards(JwtAuthGuard, WorkspaceGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, WorkspaceGuard, PermissionGuard)
 export class CommentsController {
   constructor(private readonly svc: CommentsService) {}
 
   @Get('content-items/:contentItemId/comments')
+  @Permission('content', 'view')
   list(
     @WorkspaceId() wsId: string,
     @Param('contentItemId') contentItemId: string,
@@ -30,7 +31,7 @@ export class CommentsController {
   }
 
   @Post('content-items/:contentItemId/comments')
-  @Roles('admin', 'cm')
+  @Permission('content', 'update')
   create(
     @WorkspaceId() wsId: string,
     @Param('contentItemId') contentItemId: string,
@@ -41,7 +42,7 @@ export class CommentsController {
   }
 
   @Delete('comments/:commentID')
-  @Roles('admin', 'cm')
+  @Permission('content', 'update')
   delete(
     @WorkspaceId() wsId: string,
     @Param('commentID') commentID: string,

@@ -33,6 +33,9 @@ export class CreateTaskDto {
 
   @IsOptional()
   client_id?: string;
+
+  @IsOptional()
+  project_id?: string;
 }
 
 export class UpdateTaskDto {
@@ -63,4 +66,7 @@ export class UpdateTaskDto {
 
   @IsOptional()
   client_id?: string;
+
+  @IsOptional()
+  project_id?: string;
 }

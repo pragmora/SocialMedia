@@ -17,13 +17,13 @@ export default function ConfirmDialog({ open, title, message, confirmLabel, onCo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 animate-fade-in">
-        <h3 className="text-lg font-bold text-slate-900 mb-2">{title}</h3>
-        <p className="text-sm text-slate-600 mb-6">{message}</p>
+      <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-sm p-6 animate-fade-in">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">{title}</h3>
+        <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">{message}</p>
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors active:scale-[0.97]"
+            className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors active:scale-[0.97]"
           >
             {t('common.cancel')}
           </button>

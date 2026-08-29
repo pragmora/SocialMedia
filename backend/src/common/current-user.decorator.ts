@@ -7,3 +7,10 @@ export const CurrentUser = createParamDecorator(
     return data ? user?.[data] : user;
   },
 );
+
+export const IsSuperadmin = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return !!request.isSuperadmin;
+  },
+);

@@ -35,13 +35,13 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     vi.mocked(useParams).mockReturnValue({ id: 'item-001' })
   })
 
-  it('shows Loading... on mount before data resolves', () => {
+  it('shows Loading... on mount before data resolves', async () => {
     // Never-resolving promise to keep loading state
     mockGet.mockReturnValue(new Promise(() => {}))
 
     renderWithRouter(<ContentDetail />)
 
-    expect(screen.getByText('Cargando...')).toBeInTheDocument()
+    expect(await screen.findByText('Cargando...')).toBeInTheDocument()
   })
 
   it('calls GET /content-items/:id on mount with the correct id from useParams', async () => {
@@ -140,13 +140,13 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
         title: 'Draft Post',
         description: '',
         platform: 'instagram',
-        content_type: 'reel',
-        status: 'draft',
+        content_type: 'post',
+        status: 'pre_produccion',
         scheduled_date: null,
         created_by: 'user1',
         created_at: '2026-05-01T00:00:00Z',
         updated_at: '2026-05-01T00:00:00Z',
-        comments: [],
+        // comments field intentionally OMITTED
       },
     })
 
@@ -156,11 +156,11 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Draft Post')).toBeInTheDocument()
     })
 
-    // Draft → Revisión transition must be available
-    expect(screen.getByRole('button', { name: 'Revisión' })).toBeInTheDocument()
+    // pre_produccion → En Espera transition must be available
+    expect(screen.getByRole('button', { name: 'En Espera' })).toBeInTheDocument()
   })
 
-  it('renders status transition buttons for review status (draft + approved)', async () => {
+  it('renders status transition buttons for en_espera status (en_edicion + validacion)', async () => {
     mockGet.mockResolvedValue({
       data: {
         id: 'item-001',
@@ -170,7 +170,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
         description: '',
         platform: 'instagram',
         content_type: 'post',
-        status: 'review',
+        status: 'en_espera',
         scheduled_date: null,
         created_by: 'user1',
         created_at: '2026-05-01T00:00:00Z',
@@ -185,12 +185,12 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Review Post')).toBeInTheDocument()
     })
 
-    // Revisión → Borrador and Revisión → Aprobado transitions must be available
-    expect(screen.getByRole('button', { name: 'Borrador' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Aprobado' })).toBeInTheDocument()
+    // en_espera → En Edición and Validación transitions must be available
+    expect(screen.getByRole('button', { name: 'En Edición' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Validación' })).toBeInTheDocument()
   })
 
-  it('renders status transition buttons for approved status (published only)', async () => {
+  it('renders status transition buttons for subido status (archivado included)', async () => {
     mockGet.mockResolvedValue({
       data: {
         id: 'item-001',
@@ -200,7 +200,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
         description: '',
         platform: 'instagram',
         content_type: 'post',
-        status: 'approved',
+        status: 'subido',
         scheduled_date: null,
         created_by: 'user1',
         created_at: '2026-05-01T00:00:00Z',
@@ -215,11 +215,11 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Approved Post')).toBeInTheDocument()
     })
 
-    // Aprobado → Publicado transition must be available
-    expect(screen.getByRole('button', { name: 'Publicado' })).toBeInTheDocument()
+    // subido → Archivado transition must be available
+    expect(screen.getByRole('button', { name: 'Archivado' })).toBeInTheDocument()
   })
 
-  it('does NOT render transition buttons for archived (terminal) status', async () => {
+  it('renders transition buttons for an archivado item (shared map allows recovery)', async () => {
     mockGet.mockResolvedValue({
       data: {
         id: 'item-001',
@@ -229,7 +229,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
         description: '',
         platform: 'instagram',
         content_type: 'post',
-        status: 'archived',
+        status: 'archivado',
         scheduled_date: null,
         created_by: 'user1',
         created_at: '2026-05-01T00:00:00Z',
@@ -244,13 +244,8 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Archived Post')).toBeInTheDocument()
     })
 
-    // No transition buttons should be rendered for terminal status
-    expect(screen.queryByRole('button', { name: 'Revisión' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Borrador' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Aprobado' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Publicado' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Archivado' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Mover a:')).not.toBeInTheDocument()
+    // archivado can transition back to other statuses (e.g. En Espera)
+    expect(screen.getByRole('button', { name: 'En Espera' })).toBeInTheDocument()
   })
 
   it('shows error and back link when API returns an error', async () => {
@@ -267,7 +262,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     // Back link must be present when item not found
     const backLink = screen.getByText('← Volver a la lista')
     expect(backLink).toBeInTheDocument()
-    expect(backLink.closest('a')).toHaveAttribute('href', '/content-items')
+    expect(backLink.closest('a')).toHaveAttribute('href', '/dashboard/content-items')
   })
 
   it('renders item status badge with correct status text', async () => {
@@ -280,7 +275,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
         description: '',
         platform: 'facebook',
         content_type: 'post',
-        status: 'published',
+        status: 'subido',
         scheduled_date: null,
         created_by: 'user1',
         created_at: '2026-05-01T00:00:00Z',
@@ -295,8 +290,8 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Published Post')).toBeInTheDocument()
     })
 
-    // Status badge shows 'Publicado'
-    expect(screen.getByText('Publicado')).toBeInTheDocument()
+    // Status badge shows 'Subido'
+    expect(screen.getByText('Subido')).toBeInTheDocument()
   })
 
   it('renders comments count in the header', async () => {
@@ -414,7 +409,7 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
         description: '',
         platform: 'instagram',
         content_type: 'post',
-        status: 'draft',
+        status: 'pre_produccion',
         scheduled_date: null,
         created_by: 'user1',
         created_at: '2026-05-01T00:00:00Z',
@@ -455,11 +450,15 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
     // Comment count must show 2
     expect(screen.getByText('Comentarios (2)')).toBeInTheDocument()
 
-    // Click Delete on the first comment
-    // There are 2 Delete buttons — target the first one (for cm-preexist-1)
+    // Click Delete on the first comment.
+    // There are 3 Delete buttons: the item header one + 2 comment ones.
+    // Comment buttons come after the header button in DOM order → index 1.
     const deleteButtons = screen.getAllByRole('button', { name: 'Eliminar' })
-    expect(deleteButtons).toHaveLength(2)
-    fireEvent.click(deleteButtons[0])
+    expect(deleteButtons).toHaveLength(3)
+    fireEvent.click(deleteButtons[1])
+
+    // Confirm in the ConfirmDialog
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
 
     // After deletion:
     // - First comment removed
@@ -527,9 +526,14 @@ describe('ContentDetail — navigation/import behavior preservation (lint harden
       expect(screen.getByText('Comment to delete')).toBeInTheDocument()
     })
 
-    // Now delete it — clicking Delete button
-    const deleteButton = screen.getByRole('button', { name: 'Eliminar' })
+    // Now delete it — clicking Delete button.
+    // There are 2 Delete buttons now: the item header one + the comment one.
+    // The comment button comes after the header button in DOM order → index 1.
+    const deleteButton = screen.getAllByRole('button', { name: 'Eliminar' })[1]
     fireEvent.click(deleteButton)
+
+    // Confirm in the ConfirmDialog
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
 
     // After deletion, the comment should disappear (back to "No comments yet.")
     // The key assertion: no TypeError thrown, component still renders

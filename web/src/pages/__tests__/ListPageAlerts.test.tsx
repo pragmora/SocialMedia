@@ -42,7 +42,7 @@ describe('Dashboard/ClientList/ContentList/TaskList alert semantics', () => {
     renderWithRouter(<ClientList />)
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledWith('/clients')
+      expect(mockGet).toHaveBeenCalledWith('/clients?all=true')
     })
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar los clientes')

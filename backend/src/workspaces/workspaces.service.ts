@@ -7,6 +7,14 @@ import {
 import { SupabaseService } from '../supabase/supabase.service';
 import { v4 as uuid } from 'uuid';
 import { ErrMsg } from '../common/errors';
+import {
+  MODULES,
+  applyOverrides,
+  getRolePreset,
+  matrixDiffOverrides,
+  matrixFromRows,
+  matrixModules,
+} from '../permissions/permissions.constants';
 
 @Injectable()
 export class WorkspacesService {
@@ -21,7 +29,18 @@ export class WorkspacesService {
     return data || [];
   }
 
-  async list(userId: string) {
+  async list(userId: string, isSuperadmin = false) {
+    // El superadmin puede ver y entrar a cualquier workspace.
+    if (isSuperadmin) {
+      const { data } = await this.supabase.db
+        .from('workspaces')
+        .select('id, name, created_at, updated_at')
+        .is('deleted_at', null)
+        .order('name');
+
+      return data || [];
+    }
+
     const { data: memberships } = await this.supabase.db
       .from('memberships')
       .select('workspace_id')
@@ -267,28 +286,51 @@ export class WorkspacesService {
   }
 
   async getModulePermissions(workspaceId: string, targetUserId: string) {
-    const { data } = await this.supabase.db
+    const { data: membership } = await this.supabase.db
+      .from('memberships')
+      .select('role')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', targetUserId)
+      .single();
+
+    const { data: overrides } = await this.supabase.db
       .from('workspace_module_permissions')
-      .select('module_key, enabled')
+      .select('module_key, action, enabled')
       .eq('workspace_id', workspaceId)
       .eq('user_id', targetUserId);
 
-    return data || [];
+    return {
+      role: membership?.role ?? 'viewer',
+      overrides: overrides || [],
+    };
   }
 
-  async setModulePermissions(workspaceId: string, targetUserId: string, modules: { module_key: string; enabled: boolean }[]) {
-    const validModules = ['dashboard', 'calendar', 'content', 'projects', 'tasks', 'clients', 'members', 'finances'];
+  async setModulePermissions(
+    workspaceId: string,
+    targetUserId: string,
+    desired: { module_key: string; action: string; enabled: boolean }[],
+  ) {
+    const validModules = MODULES as readonly string[];
+    const validActions = ['view', 'create', 'update', 'delete'];
 
-    const rows = modules
-      .filter((m) => validModules.includes(m.module_key))
-      .map((m) => ({
-        workspace_id: workspaceId,
-        user_id: targetUserId,
-        module_key: m.module_key,
-        enabled: m.enabled,
-      }));
+    const rows = desired.filter(
+      (m) =>
+        validModules.includes(m.module_key) && validActions.includes(m.action),
+    );
 
-    if (rows.length === 0) return [];
+    const { data: membership } = await this.supabase.db
+      .from('memberships')
+      .select('role')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', targetUserId)
+      .single();
+    const role = membership?.role ?? 'viewer';
+
+    // Solo se persisten los overrides: lo que difiere del preset del rol.
+    const overrides = matrixDiffOverrides(
+      getRolePreset(role),
+      matrixFromRows(rows),
+    );
 
     // Delete existing and re-insert
     await this.supabase.db
@@ -297,10 +339,18 @@ export class WorkspacesService {
       .eq('workspace_id', workspaceId)
       .eq('user_id', targetUserId);
 
+    if (overrides.length === 0) return [];
+
     const { data, error } = await this.supabase.db
       .from('workspace_module_permissions')
-      .insert(rows)
-      .select('module_key, enabled');
+      .insert(
+        overrides.map((o) => ({
+          workspace_id: workspaceId,
+          user_id: targetUserId,
+          ...o,
+        })),
+      )
+      .select('module_key, action, enabled');
 
     if (error) throw error;
     return data || [];
@@ -310,22 +360,17 @@ export class WorkspacesService {
     // Admin always gets all modules
     const membership = await this.getMembership(userId, workspaceId);
     if (membership?.role === 'admin') {
-      return ['dashboard', 'calendar', 'content', 'projects', 'tasks', 'clients', 'members', 'finances'];
+      return [...MODULES];
     }
 
-    const { data } = await this.supabase.db
+    const { data: overrides } = await this.supabase.db
       .from('workspace_module_permissions')
-      .select('module_key')
+      .select('module_key, action, enabled')
       .eq('workspace_id', workspaceId)
-      .eq('user_id', userId)
-      .eq('enabled', true);
+      .eq('user_id', userId);
 
-    if (!data || data.length === 0) {
-      // No permissions configured = all modules enabled (fallback)
-      return ['dashboard', 'calendar', 'content', 'projects', 'tasks', 'clients', 'members', 'finances'];
-    }
-
-    return data.map((r) => r.module_key);
+    const matrix = applyOverrides(getRolePreset(membership?.role), overrides || []);
+    return matrixModules(matrix);
   }
 
   private async getMembership(userId: string, workspaceId: string) {
@@ -335,7 +380,20 @@ export class WorkspacesService {
       .eq('workspace_id', workspaceId)
       .eq('user_id', userId)
       .single();
-    return data;
+
+    if (data) return data;
+
+    // Superadmin global: opera como admin en cualquier workspace,
+    // aunque no tenga una membresía explícita.
+    const { data: user } = await this.supabase.db
+      .from('users')
+      .select('is_superadmin')
+      .eq('id', userId)
+      .single();
+
+    if (user?.is_superadmin) return { role: 'admin' as const };
+
+    return null;
   }
 
   private async requireAdmin(userId: string, workspaceId: string) {

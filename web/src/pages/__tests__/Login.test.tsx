@@ -27,6 +27,7 @@ const mockReauthenticate = vi.fn()
 vi.mock('@/context/MeContext', () => ({
   useMe: () => ({
     reauthenticate: mockReauthenticate,
+    switchWorkspace: vi.fn(),
   }),
 }))
 
@@ -102,7 +103,7 @@ describe('Login page', () => {
     })
 
     // Button is disabled while loading
-    expect(screen.getByRole('button')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Iniciando sesión...' })).toBeDisabled()
   })
 
   // ── reauthenticate integration ─────────────────────────────────

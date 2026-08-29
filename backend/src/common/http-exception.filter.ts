@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { MulterError } from 'multer';
 import { Response } from 'express';
 
 @Catch()
@@ -31,6 +32,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
           },
         };
       }
+    } else if (exception instanceof MulterError) {
+      status = exception.code === 'LIMIT_FILE_SIZE'
+        ? HttpStatus.PAYLOAD_TOO_LARGE
+        : HttpStatus.BAD_REQUEST;
+      body = {
+        error: {
+          code: 'file',
+          message: exception.code === 'LIMIT_FILE_SIZE'
+            ? 'El archivo supera el máximo de 5 MB'
+            : exception.message,
+        },
+      };
     } else if (exception instanceof Error) {
       console.error('Unhandled error:', exception);
       body = { error: { code: 'internal', message: exception.message } };

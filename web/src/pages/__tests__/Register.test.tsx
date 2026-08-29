@@ -27,6 +27,7 @@ const mockReauthenticate = vi.fn()
 vi.mock('@/context/MeContext', () => ({
   useMe: () => ({
     reauthenticate: mockReauthenticate,
+    switchWorkspace: vi.fn(),
   }),
 }))
 
@@ -155,7 +156,7 @@ describe('Register page', () => {
       expect(screen.getByRole('button', { name: 'Creando cuenta...' })).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('button')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Creando cuenta...' })).toBeDisabled()
   })
 
   // ── Ordering: navigation waits for reauthenticate resolution ────

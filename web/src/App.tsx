@@ -2,7 +2,12 @@ import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { MeProvider, useMe } from '@/context/MeContext'
+import { ToastProvider } from '@/context/ToastContext'
+import { ThemeProvider } from '@/context/ThemeProvider'
 import { getRoleLabel } from '@/lib/labels'
+import apiClient from '@/lib/apiClient'
+import ThemeToggle from '@/components/ThemeToggle'
+import { useTheme } from '@/context/useTheme'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher'
@@ -15,6 +20,7 @@ import Dashboard from '@/pages/Dashboard/Dashboard'
 import Calendar from '@/pages/Calendar/Calendar'
 import TaskList from '@/pages/Tasks/TaskList'
 import TaskForm from '@/pages/Tasks/TaskForm'
+import TaskDetail from '@/pages/Tasks/TaskDetail'
 import ProjectList from '@/pages/Projects/ProjectList'
 import ProjectForm from '@/pages/Projects/ProjectForm'
 import MemberList from '@/pages/Members/MemberList'
@@ -25,19 +31,174 @@ import FinanceForm from '@/pages/Finances/FinanceForm'
 function Home() {
   const { t } = useTranslation()
   return (
-    <div className="min-h-screen bg-[#faf9f6] flex flex-col items-center justify-center gap-6 px-4"
+    <div className="min-h-screen bg-[#faf9f6] dark:bg-slate-950 flex flex-col items-center justify-center gap-6 px-4"
       style={{ backgroundImage: 'radial-gradient(ellipse at 30% 20%, rgba(76,110,245,0.06) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(249,115,22,0.04) 0%, transparent 60%)' }}>
-      <h1 className="text-5xl md:text-6xl font-bold text-slate-900 tracking-tight">{t('app.title')}</h1>
-      <p className="text-lg text-slate-500 max-w-md text-center leading-relaxed">
+      <ThemeToggle className="fixed top-4 right-4 z-40 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200 bg-white/70 dark:bg-slate-800/70 backdrop-blur shadow-sm" />
+      <h1 className="text-5xl md:text-6xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">{t('app.title')}</h1>
+      <p className="text-lg text-slate-500 dark:text-slate-400 max-w-md text-center leading-relaxed">
         {t('app.tagline')}
       </p>
       <div className="flex gap-4 mt-2">
         <a href="/login" className="rounded-xl bg-socialflow-600 px-7 py-3 text-white font-semibold hover:bg-socialflow-700 transition-all duration-200 shadow-lg shadow-socialflow-600/20 hover:shadow-xl hover:shadow-socialflow-600/30 active:scale-[0.97]">
           {t('auth.logIn')}
         </a>
-        <a href="/register" className="rounded-xl border-2 border-slate-200 px-7 py-3 text-slate-700 font-semibold hover:border-slate-300 hover:bg-white transition-all duration-200 active:scale-[0.97]">
+        <a href="/register" className="rounded-xl border-2 border-slate-200 dark:border-slate-700 px-7 py-3 text-slate-700 dark:text-slate-300 font-semibold hover:border-slate-300 hover:bg-white dark:hover:border-slate-600 dark:hover:bg-slate-900 transition-all duration-200 active:scale-[0.97]">
           {t('auth.register')}
         </a>
+      </div>
+    </div>
+  )
+}
+
+/* ── No workspace screen ─────────────────────────────────────── */
+
+function NoWorkspaceScreen() {
+  const { t } = useTranslation()
+  const { reauthenticate, switchWorkspace } = useMe()
+  const [mode, setMode] = useState<'create' | 'join'>('create')
+  const [name, setName] = useState('')
+  const [inviteInput, setInviteInput] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [joining, setJoining] = useState(false)
+  const [error, setError] = useState('')
+
+  function extractToken(input: string): string {
+    const trimmed = input.trim()
+    const match = trimmed.match(/\/invite\/([A-Za-z0-9]+)$/)
+    if (match) return match[1]
+    return trimmed
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+    setCreating(true)
+    setError('')
+    const res = await apiClient.post<{ id: string; name: string }>('/workspaces', { name: name.trim() })
+    if (res.error) {
+      setError(res.error.message)
+      setCreating(false)
+      return
+    }
+    if (res.data) {
+      await switchWorkspace(res.data.id)
+    } else {
+      await reauthenticate()
+    }
+    setCreating(false)
+  }
+
+  async function handleJoin(e: React.FormEvent) {
+    e.preventDefault()
+    const token = extractToken(inviteInput)
+    if (!token) return
+    setJoining(true)
+    setError('')
+    const res = await apiClient.post<{ workspace_id: string }>(`/invites/${token}/claim`)
+    setJoining(false)
+    if (res.error) {
+      setError(res.error.message)
+      return
+    }
+    if (res.data?.workspace_id) {
+      await switchWorkspace(res.data.workspace_id)
+    } else {
+      await reauthenticate()
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-[#faf9f6] dark:bg-slate-950 flex items-center justify-center px-4"
+      style={{ backgroundImage: 'radial-gradient(ellipse at 30% 20%, rgba(76,110,245,0.06) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(249,115,22,0.04) 0%, transparent 60%)' }}>
+      <ThemeToggle className="fixed top-4 right-4 z-40 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200 bg-white/70 dark:bg-slate-800/70 backdrop-blur shadow-sm" />
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-socialflow-500 to-socialflow-700 flex items-center justify-center text-white font-bold text-lg mx-auto mb-4 shadow-lg shadow-socialflow-600/20">
+            S
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('workspace.noWorkspaceTitle')}</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('workspace.noWorkspaceSubtitle')}</p>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm">
+          <div className="flex gap-1.5 mb-5 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => { setMode('create'); setError('') }}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                mode === 'create'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              {t('workspace.createTab')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('join'); setError('') }}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                mode === 'join'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+              }`}
+            >
+              {t('workspace.joinTab')}
+            </button>
+          </div>
+
+          {error && (
+            <div role="alert" className="rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-400 mb-4">
+              {error}
+            </div>
+          )}
+
+          {mode === 'create' ? (
+            <form onSubmit={handleCreate}>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('workspace.createName')}</span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoFocus
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500"
+                  placeholder={t('workspace.createNamePlaceholder')}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={creating}
+                className="w-full rounded-xl bg-socialflow-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-socialflow-700 transition-colors disabled:opacity-50 mt-5 shadow-sm active:scale-[0.98]"
+              >
+                {creating ? t('workspace.creating') : t('workspace.create')}
+              </button>
+              <p className="mt-4 text-xs text-slate-400 leading-relaxed">{t('workspace.noWorkspaceHint')}</p>
+            </form>
+          ) : (
+            <form onSubmit={handleJoin}>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('workspace.joinInvite')}</span>
+                <input
+                  type="text"
+                  value={inviteInput}
+                  onChange={(e) => setInviteInput(e.target.value)}
+                  required
+                  autoFocus
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:border-socialflow-500 focus:outline-none focus:ring-1 focus:ring-socialflow-500"
+                  placeholder={t('workspace.joinInvitePlaceholder')}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={joining}
+                className="w-full rounded-xl bg-socialflow-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-socialflow-700 transition-colors disabled:opacity-50 mt-5 shadow-sm active:scale-[0.98]"
+              >
+                {joining ? t('workspace.joining') : t('workspace.join')}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -139,7 +300,7 @@ function NavLink({ item, location, onClick }: { item: NavItem; location: { pathn
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-3 pt-5 pb-1.5 text-[10px] font-semibold text-slate-600 uppercase tracking-widest">
+    <p className="px-3 pt-5 pb-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
       {children}
     </p>
   )
@@ -150,8 +311,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function DashboardShell() {
   const { t } = useTranslation()
   const { user, loading, logout } = useMe()
+  const { theme } = useTheme()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const isDark = theme === 'dark'
 
   const mainNav: NavItem[] = [
     { label: t('nav.dashboard'), path: '/dashboard', icon: 'dashboard', module: 'dashboard' },
@@ -181,10 +344,10 @@ function DashboardShell() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#faf9f6] flex items-center justify-center">
+      <div className="min-h-screen bg-[#faf9f6] dark:bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-socialflow-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-500 text-sm">{t('app.loading')}</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">{t('app.loading')}</p>
         </div>
       </div>
     )
@@ -192,6 +355,10 @@ function DashboardShell() {
 
   if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (!user.active_workspace_id) {
+    return <NoWorkspaceScreen />
   }
 
   const sidebar = (
@@ -265,12 +432,16 @@ function DashboardShell() {
           {icons.logout}
           <span>{t('auth.logOut')}</span>
         </button>
+        <div className="mt-1 flex items-center justify-between border-t border-white/5 pt-2">
+          <span className="text-[11px] text-slate-500">{isDark ? t('theme.dark') : t('theme.light')}</span>
+          <ThemeToggle className="text-slate-400 hover:text-slate-200 hover:bg-white/5" />
+        </div>
       </div>
     </aside>
   )
 
   return (
-    <div className="min-h-screen bg-[#faf9f6] flex">
+    <div className="min-h-screen bg-[#faf9f6] dark:bg-slate-950 flex">
       {/* Desktop sidebar */}
       <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-30">
         {sidebar}
@@ -287,17 +458,20 @@ function DashboardShell() {
       )}
 
       {/* Mobile hamburger */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 h-14 flex items-center justify-between">
-        <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-2 rounded-lg hover:bg-slate-100 transition-colors" aria-label={t('app.menu')}>
-          <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 h-14 flex items-center justify-between">
+        <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label={t('app.menu')}>
+          <svg className="w-5 h-5 text-slate-700 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-socialflow-500 to-socialflow-700 flex items-center justify-center text-white font-bold text-xs">S</div>
-          <span className="font-semibold text-slate-900">{t('app.title')}</span>
+          <span className="font-semibold text-slate-900 dark:text-slate-100">{t('app.title')}</span>
         </div>
-        <WorkspaceSwitcher />
+        <div className="flex items-center gap-1.5">
+          <WorkspaceSwitcher />
+          <ThemeToggle className="text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200" />
+        </div>
       </div>
 
       {/* Main content */}
@@ -315,6 +489,7 @@ function DashboardShell() {
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/tasks" element={<TaskList />} />
             <Route path="/tasks/new" element={<TaskForm />} />
+            <Route path="/tasks/:id" element={<TaskDetail />} />
             <Route path="/tasks/:id/edit" element={<TaskForm />} />
             <Route path="/projects" element={<ProjectList />} />
             <Route path="/projects/new" element={<ProjectForm />} />
@@ -332,17 +507,21 @@ function DashboardShell() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <MeProvider>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/invite/:token" element={<InviteClaim />} />
-          <Route path="/dashboard/*" element={<DashboardShell />} />
-        </Routes>
-      </MeProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <MeProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/invite/:token" element={<InviteClaim />} />
+              <Route path="/dashboard/*" element={<DashboardShell />} />
+            </Routes>
+          </ToastProvider>
+        </MeProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 

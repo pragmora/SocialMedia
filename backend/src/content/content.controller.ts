@@ -15,16 +15,17 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { WorkspaceGuard } from '../common/workspace.guard';
 import { WorkspaceId } from '../common/workspace.decorator';
-import { Roles } from '../common/roles.decorator';
-import { RolesGuard } from '../common/roles.guard';
+import { PermissionGuard } from '../common/permission.guard';
+import { Permission } from '../common/permission.decorator';
 import { CreateContentDto, UpdateContentDto, TransitionStatusDto } from './dto';
 
 @Controller('content-items')
-@UseGuards(JwtAuthGuard, WorkspaceGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, WorkspaceGuard, PermissionGuard)
 export class ContentController {
   constructor(private readonly svc: ContentService) {}
 
   @Get()
+  @Permission('content', 'view')
   list(
     @WorkspaceId() wsId: string,
     @CurrentUser('sub') userId: string,
@@ -42,7 +43,7 @@ export class ContentController {
   }
 
   @Post()
-  @Roles('admin', 'cm')
+  @Permission('content', 'create')
   create(
     @WorkspaceId() wsId: string,
     @CurrentUser('sub') userId: string,
@@ -52,12 +53,13 @@ export class ContentController {
   }
 
   @Get(':id')
+  @Permission('content', 'view')
   get(@WorkspaceId() wsId: string, @Param('id') id: string) {
     return this.svc.get(wsId, id);
   }
 
   @Put(':id')
-  @Roles('admin', 'cm')
+  @Permission('content', 'update')
   update(
     @WorkspaceId() wsId: string,
     @CurrentUser('sub') userId: string,
@@ -68,6 +70,7 @@ export class ContentController {
   }
 
   @Patch(':id/assign')
+  @Permission('content', 'update')
   assign(
     @WorkspaceId() wsId: string,
     @Param('id') id: string,
@@ -77,7 +80,7 @@ export class ContentController {
   }
 
   @Patch(':id/status')
-  @Roles('admin', 'cm')
+  @Permission('content', 'update')
   transitionStatus(
     @WorkspaceId() wsId: string,
     @Param('id') id: string,
@@ -87,7 +90,7 @@ export class ContentController {
   }
 
   @Delete(':id')
-  @Roles('admin', 'cm')
+  @Permission('content', 'delete')
   delete(@WorkspaceId() wsId: string, @Param('id') id: string) {
     return this.svc.delete(wsId, id);
   }

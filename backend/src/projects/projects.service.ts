@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateProjectDto, UpdateProjectDto } from './dto';
@@ -9,6 +10,9 @@ import { ErrMsg, InvalidReferenceError, InvalidFormatError } from '../common/err
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+  private logoBucketReady = false;
+
   constructor(private readonly supabase: SupabaseService) {}
 
   async list(workspaceId: string) {
@@ -23,7 +27,7 @@ export class ProjectsService {
 
     const { data } = await this.supabase.db
       .from('projects')
-      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, logo_url, created_at, updated_at')
       .in('id', projectIds)
       .is('deleted_at', null)
       .order('name');
@@ -51,7 +55,7 @@ export class ProjectsService {
         created_by: userId,
         updated_by: userId,
       })
-      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, logo_url, created_at, updated_at')
       .single();
 
     if (error) throw error;
@@ -75,7 +79,7 @@ export class ProjectsService {
   async get(workspaceId: string, id: string) {
     const { data } = await this.supabase.db
       .from('projects')
-      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, logo_url, created_at, updated_at')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -113,7 +117,7 @@ export class ProjectsService {
       })
       .eq('id', id)
       .is('deleted_at', null)
-      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, logo_url, created_at, updated_at')
       .single();
 
     if (!data) throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
@@ -165,7 +169,7 @@ export class ProjectsService {
       })
       .eq('id', id)
       .is('deleted_at', null)
-      .select('id, name, description, start_date, end_date, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, assignee_id, logo_url, created_at, updated_at')
       .single();
 
     if (error || !data) throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
@@ -193,12 +197,119 @@ export class ProjectsService {
 
     const { data } = await this.supabase.db
       .from('projects')
-      .select('id, name, description, start_date, end_date, client_id, assignee_id, created_at, updated_at')
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, logo_url, created_at, updated_at')
       .in('id', projectIds)
       .is('deleted_at', null)
       .order('name');
 
     return data || [];
+  }
+
+  async setLogo(workspaceId: string, projectId: string, file: Express.Multer.File, userId: string) {
+    const ALLOWED_MIME = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/svg+xml',
+    ]);
+    const EXT: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+      'image/svg+xml': 'svg',
+    };
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+    if (!file || !file.buffer) {
+      throw new BadRequestException('el archivo del logo es obligatorio');
+    }
+    if (!ALLOWED_MIME.has(file.mimetype)) {
+      throw new BadRequestException(
+        'formato no soportado: usá JPG, PNG, WebP o SVG',
+      );
+    }
+    if (file.size > MAX_SIZE) {
+      throw new BadRequestException('el logo supera el máximo de 5 MB');
+    }
+
+    await this.assertProjectInWorkspace(workspaceId, projectId);
+    await this.ensureLogoBucket();
+
+    const path = `${projectId}/logo.${EXT[file.mimetype]}`;
+
+    const { error: uploadError } = await this.supabase.client.storage
+      .from('project_logos')
+      .upload(path, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      this.logger.error(`Logo upload failed: ${uploadError.message}`);
+      throw new BadRequestException('no se pudo subir el logo, intentá de nuevo');
+    }
+
+    const { data: urlData } = this.supabase.client.storage
+      .from('project_logos')
+      .getPublicUrl(path);
+
+    const { data, error } = await this.supabase.db
+      .from('projects')
+      .update({ logo_url: urlData?.publicUrl ?? null, updated_by: userId, updated_at: new Date().toISOString() })
+      .eq('id', projectId)
+      .is('deleted_at', null)
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, logo_url, created_at, updated_at')
+      .single();
+
+    if (error || !data) {
+      throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
+    }
+
+    return data;
+  }
+
+  async removeLogo(workspaceId: string, projectId: string, userId: string) {
+    await this.assertProjectInWorkspace(workspaceId, projectId);
+
+    const { data, error } = await this.supabase.db
+      .from('projects')
+      .update({ logo_url: null, updated_by: userId, updated_at: new Date().toISOString() })
+      .eq('id', projectId)
+      .is('deleted_at', null)
+      .select('id, name, description, start_date, end_date, client_id, assignee_id, logo_url, created_at, updated_at')
+      .single();
+
+    if (error || !data) {
+      throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
+    }
+
+    return data;
+  }
+
+  private async ensureLogoBucket() {
+    if (this.logoBucketReady) return;
+    const { error } = await this.supabase.client.storage.createBucket('project_logos', {
+      public: true,
+    });
+    if (error && error.message?.toLowerCase().includes('already exists')) {
+      // ya existe: no es un error
+    } else if (error) {
+      this.logger.error(`createBucket failed: ${error.message}`);
+    }
+    this.logoBucketReady = true;
+  }
+
+  private async assertProjectInWorkspace(workspaceId: string, projectId: string) {
+    const { data } = await this.supabase.db
+      .from('workspace_projects')
+      .select('project_id')
+      .eq('project_id', projectId)
+      .eq('workspace_id', workspaceId)
+      .single();
+
+    if (!data) {
+      throw new NotFoundException({ code: 'not_found', message: ErrMsg.PROJECT_NOT_FOUND });
+    }
   }
 
   private async validateMemberInWorkspace(userId: string, workspaceId: string) {

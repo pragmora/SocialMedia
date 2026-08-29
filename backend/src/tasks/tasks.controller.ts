@@ -15,25 +15,27 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import { WorkspaceGuard } from '../common/workspace.guard';
 import { WorkspaceId } from '../common/workspace.decorator';
-import { Roles } from '../common/roles.decorator';
-import { RolesGuard } from '../common/roles.guard';
+import { PermissionGuard } from '../common/permission.guard';
+import { Permission } from '../common/permission.decorator';
 import { CreateTaskDto, UpdateTaskDto } from './dto';
 
 @Controller('tasks')
-@UseGuards(JwtAuthGuard, WorkspaceGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, WorkspaceGuard, PermissionGuard)
 export class TasksController {
   constructor(private readonly svc: TasksService) {}
 
   @Get()
+  @Permission('tasks', 'view')
   list(
     @WorkspaceId() wsId: string,
     @Query('content_item_id') contentItemId?: string,
+    @Query('project_id') projectId?: string,
   ) {
-    return this.svc.list(wsId, { content_item_id: contentItemId });
+    return this.svc.list(wsId, { content_item_id: contentItemId, project_id: projectId });
   }
 
   @Post()
-  @Roles('admin', 'cm')
+  @Permission('tasks', 'create')
   create(
     @WorkspaceId() wsId: string,
     @CurrentUser('sub') userId: string,
@@ -43,12 +45,13 @@ export class TasksController {
   }
 
   @Get(':id')
+  @Permission('tasks', 'view')
   get(@WorkspaceId() wsId: string, @Param('id') id: string) {
     return this.svc.get(wsId, id);
   }
 
   @Put(':id')
-  @Roles('admin', 'cm')
+  @Permission('tasks', 'update')
   update(
     @WorkspaceId() wsId: string,
     @CurrentUser('sub') userId: string,
@@ -59,7 +62,7 @@ export class TasksController {
   }
 
   @Patch(':id/assign')
-  @Roles('admin', 'cm')
+  @Permission('tasks', 'update')
   assign(
     @WorkspaceId() wsId: string,
     @CurrentUser('sub') userId: string,
@@ -69,8 +72,19 @@ export class TasksController {
     return this.svc.assign(wsId, userId, id, assigneeId ?? null);
   }
 
+  @Patch(':id/done')
+  @Permission('tasks', 'update')
+  setDone(
+    @WorkspaceId() wsId: string,
+    @CurrentUser('sub') userId: string,
+    @Param('id') id: string,
+    @Body('done') done: boolean,
+  ) {
+    return this.svc.setDone(wsId, userId, id, done);
+  }
+
   @Delete(':id')
-  @Roles('admin', 'cm')
+  @Permission('tasks', 'delete')
   delete(
     @WorkspaceId() wsId: string,
     @Param('id') id: string,

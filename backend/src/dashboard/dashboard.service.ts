@@ -67,10 +67,67 @@ export class DashboardService {
       .not('end_date', 'is', null)
       .lt('end_date', new Date().toISOString().slice(0, 10));
 
+    // ── Próximos a vencer ──────────────────────────────────────────────
+    const today = new Date().toISOString().slice(0, 10);
+    const limitDate = this.addDays(today, 7);
+
+    // Tareas pendientes que vencen dentro de 7 días (o ya vencidas)
+    const { data: tasksDue } = await this.supabase.db
+      .from('tasks')
+      .select('id, title, end_date, done, client_id, project_id, assignee_id, clients(name), projects(name), users!tasks_assignee_id_fkey(name)')
+      .or(taskFilter)
+      .eq('done', false)
+      .not('end_date', 'is', null)
+      .lte('end_date', limitDate);
+
+    // Contenidos con fecha de fin dentro de 7 días (o ya vencidos) y todavía activos
+    const { data: contentDue } = await this.supabase.db
+      .from('content_items')
+      .select('id, title, fecha_final, status, client_id, project_id, assignee_id, clients(name), projects(name), users!content_items_assignee_id_fkey(name)')
+      .or(`workspace_id.eq.${workspaceId}${sharedProjectIds.length > 0 ? `,project_id.in.(${sharedProjectIds.join(',')})` : ''}`)
+      .not('fecha_final', 'is', null)
+      .lte('fecha_final', limitDate)
+      .not('status', 'in', '(subido,archivado)');
+
+    const dueSoon = [
+      ...(tasksDue || []).map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        type: 'task',
+        due_date: t.end_date,
+        status: 'pre_produccion',
+        done: t.done,
+        client_name: t.clients?.name ?? null,
+        project_name: t.projects?.name ?? null,
+        assignee_name: t.users?.name ?? null,
+      })),
+      ...(contentDue || []).map((c: any) => ({
+        id: c.id,
+        title: c.title,
+        type: 'content',
+        due_date: c.fecha_final,
+        status: c.status,
+        done: false,
+        client_name: c.clients?.name ?? null,
+        project_name: c.projects?.name ?? null,
+        assignee_name: c.users?.name ?? null,
+      })),
+    ].sort((a, b) => (a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0));
+
     return {
       status_counts: statusCounts,
       recent_items: recent || [],
       overdue_tasks: overdue?.length || 0,
+      due_soon: dueSoon,
     };
+  }
+
+  private addDays(dateStr: string, n: number): string {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 }

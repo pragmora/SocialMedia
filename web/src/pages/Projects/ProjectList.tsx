@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import apiClient from '@/lib/apiClient'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { useOptionalUser } from '@/context/useMe'
+import { can } from '@/lib/permissions'
 
 interface Project {
   id: string
@@ -11,6 +13,7 @@ interface Project {
   start_date: string | null
   end_date: string | null
   assignee_id: string | null
+  logo_url: string | null
   created_at: string
   updated_at: string
 }
@@ -22,6 +25,10 @@ interface WorkspaceMember {
 
 export default function ProjectList() {
   const { t } = useTranslation()
+  const user = useOptionalUser()
+  const canEdit = can(user, 'projects', 'update')
+  const canCreate = can(user, 'projects', 'create')
+  const canDelete = can(user, 'projects', 'delete')
   const [projects, setProjects] = useState<Project[]>([])
   const [members, setMembers] = useState<Record<string, WorkspaceMember>>({})
   const [loading, setLoading] = useState(true)
@@ -41,7 +48,7 @@ export default function ProjectList() {
   }, [])
 
   useEffect(() => {
-    loadProjects()
+    queueMicrotask(loadProjects)
     apiClient.get<WorkspaceMember[]>('/members').then((res) => {
       if (res.data) {
         const map: Record<string, WorkspaceMember> = {}
@@ -72,43 +79,62 @@ export default function ProjectList() {
   return (
     <div className="animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-        <h2 className="text-2xl font-bold text-slate-900">{t('projects.title')}</h2>
-        <Link
-          to="/dashboard/projects/new"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-socialflow-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-socialflow-700 transition-all shadow-sm active:scale-[0.97]"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          {t('projects.newProject')}
-        </Link>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('projects.title')}</h2>
+        {canCreate && (
+          <Link
+            to="/dashboard/projects/new"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-socialflow-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-socialflow-700 transition-all shadow-sm active:scale-[0.97]"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            {t('projects.newProject')}
+          </Link>
+        )}
       </div>
 
       {error && (
-        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
+        <div role="alert" className="rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-300 mb-4">
           {error}
         </div>
       )}
 
       {projects.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 sm:p-16 text-center">
-          <p className="text-slate-500">{t('projects.noProjects')}</p>
+        <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-12 sm:p-16 text-center">
+          <p className="text-slate-500 dark:text-slate-400">{t('projects.noProjects')}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <div
               key={project.id}
-              className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-all"
+              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-sm hover:shadow-md transition-all"
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <Link
-                  to={`/dashboard/projects/${project.id}/edit`}
-                  className="font-semibold text-slate-900 hover:text-socialflow-600 transition-colors"
-                >
-                  {project.name}
-                </Link>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {project.logo_url ? (
+                    <img
+                      src={project.logo_url}
+                      alt=""
+                      className="w-9 h-9 rounded-lg border border-slate-200/80 dark:border-slate-700 object-contain bg-slate-50 dark:bg-slate-800/50 shrink-0"
+                    />
+                  ) : (
+                    <span className="w-9 h-9 rounded-lg bg-gradient-to-br from-socialflow-500 to-socialflow-700 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                      {project.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  {canEdit ? (
+                    <Link
+                      to={`/dashboard/projects/${project.id}/edit`}
+                      className="font-semibold text-slate-900 dark:text-slate-100 hover:text-socialflow-600 dark:hover:text-socialflow-400 transition-colors truncate"
+                    >
+                      {project.name}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">{project.name}</span>
+                  )}
+                </div>
               </div>
               {project.description && (
-                <p className="text-xs text-slate-500 mb-3 line-clamp-2">{project.description}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 line-clamp-2">{project.description}</p>
               )}
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400 mb-3">
                 {project.start_date && <span>▶ {project.start_date}</span>}
@@ -117,19 +143,23 @@ export default function ProjectList() {
                   <span>👤 {members[project.assignee_id]?.user?.name || members[project.assignee_id]?.user?.email || project.assignee_id}</span>
                 )}
               </div>
-              <div className="flex gap-2 pt-3 border-t border-slate-100">
-                <Link
-                  to={`/dashboard/projects/${project.id}/edit`}
-                  className="text-xs text-socialflow-600 hover:text-socialflow-700 font-semibold"
-                >
-                  {t('projects.edit')}
-                </Link>
-                <button
-                  onClick={() => setDeleteId(project.id)}
-                  className="text-xs text-red-500 hover:text-red-700 font-semibold"
-                >
-                  {t('projects.delete')}
-                </button>
+              <div className="flex gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                {canEdit && (
+                  <Link
+                    to={`/dashboard/projects/${project.id}/edit`}
+                    className="text-xs text-socialflow-600 dark:text-socialflow-400 hover:text-socialflow-700 dark:hover:text-socialflow-300 font-semibold"
+                  >
+                    {t('projects.edit')}
+                  </Link>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={() => setDeleteId(project.id)}
+                    className="text-xs text-red-500 hover:text-red-700 font-semibold"
+                  >
+                    {t('projects.delete')}
+                  </button>
+                )}
               </div>
             </div>
           ))}

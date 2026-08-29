@@ -61,7 +61,9 @@ export class ContentService {
       query = query.eq('assignee_id', filters.assigned_to_me);
     }
 
-    const { data } = await query.order('updated_at', { ascending: false });
+    const { data } = await query
+      .order('scheduled_date', { ascending: true, nullsFirst: true })
+      .order('updated_at', { ascending: false });
     return data || [];
   }
 
@@ -108,11 +110,13 @@ export class ContentService {
   }
 
   async get(workspaceId: string, id: string) {
+    const sharedProjectIds = await this.getSharedProjectIds(workspaceId);
+
     const { data } = await this.supabase.db
       .from('content_items')
       .select('*')
       .eq('id', id)
-      .eq('workspace_id', workspaceId)
+      .or(`workspace_id.eq.${workspaceId}${sharedProjectIds.length > 0 ? `,project_id.in.(${sharedProjectIds.join(',')})` : ''}`)
       .single();
 
     if (!data) throw new NotFoundException({ code: 'not_found', message: ErrMsg.CONTENT_NOT_FOUND });
@@ -235,7 +239,7 @@ export class ContentService {
 
   async listByMonth(
     workspaceId: string,
-    params: { month?: string; client_id?: string; platform?: string; status?: string; project_id?: string },
+    params: { month?: string; year?: string; client_id?: string; platform?: string; status?: string; project_id?: string; assignee_id?: string },
   ) {
     const month = params.month || new Date().toISOString().slice(0, 7);
     const [year, mon] = month.split('-');
@@ -243,19 +247,25 @@ export class ContentService {
     const nextMonth = new Date(parseInt(year), parseInt(mon), 1);
     const nextMonthStart = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
 
+    // Vista anual: si se pasa ?year=YYYY, el rango es todo el año
+    const hasYear = !!params.year && /^\d{4}$/.test(params.year!);
+    const rangeStart = hasYear ? `${params.year}-01-01` : monthStart;
+    const rangeEnd = hasYear ? `${parseInt(params.year!) + 1}-01-01` : nextMonthStart;
+
     const sharedProjectIds = await this.getSharedProjectIds(workspaceId);
 
     let contentQuery = this.supabase.db
       .from('content_items')
-      .select('id, title, platform, content_type, status, scheduled_date, fecha_inicial, fecha_final, project_id')
+      .select('id, title, platform, content_type, status, scheduled_date, fecha_inicial, fecha_final, project_id, client_id, assignee_id')
       .or(`workspace_id.eq.${workspaceId}${sharedProjectIds.length > 0 ? `,project_id.in.(${sharedProjectIds.join(',')})` : ''}`)
-      .gte('scheduled_date', monthStart)
-      .lt('scheduled_date', nextMonthStart);
+      .gte('fecha_final', rangeStart)
+      .lt('fecha_final', rangeEnd);
 
     if (params.client_id) contentQuery = contentQuery.eq('client_id', params.client_id);
     if (params.platform) contentQuery = contentQuery.eq('platform', params.platform);
     if (params.status) contentQuery = contentQuery.eq('status', params.status);
     if (params.project_id) contentQuery = contentQuery.eq('project_id', params.project_id);
+    if (params.assignee_id) contentQuery = contentQuery.eq('assignee_id', params.assignee_id);
 
     const { data: contentData } = await contentQuery.order('scheduled_date', { ascending: true });
 
@@ -275,30 +285,53 @@ export class ContentService {
     const sharedContentTaskFilter = sharedContentIds.length > 0 ? `content_item_id.in.(${sharedContentIds.join(',')})` : '';
     const taskLocationFilter = sharedContentTaskFilter ? `${workspaceTaskFilter},${sharedContentTaskFilter}` : workspaceTaskFilter;
 
-    let tasksQuery = this.supabase.db
+    let tasksQuery: any = this.supabase.db
       .from('tasks')
-      .select('id, title, start_date, end_date, done, content_item_id, client_id')
+      .select('id, title, start_date, end_date, done, content_item_id, client_id, project_id, assignee_id')
       .or(taskLocationFilter)
-      .or(
-        `and(end_date.gte.${monthStart},end_date.lt.${nextMonthStart}),` +
-        `and(start_date.gte.${monthStart},start_date.lt.${nextMonthStart})`
-      );
+      .gte('end_date', rangeStart)
+      .lt('end_date', rangeEnd);
 
-    if (params.project_id) {
+    // Las tareas no tienen plataforma: si se filtra por una plataforma concreta, se excluyen.
+    // El estado de una tarea se reduce a 'subido' (done) o 'pre_produccion' (pendiente).
+    if (params.platform && params.platform !== 'other') {
+      tasksQuery = null;
+    } else if (params.status) {
+      if (params.status === 'subido') {
+        tasksQuery = tasksQuery.eq('done', true);
+      } else if (params.status === 'pre_produccion') {
+        tasksQuery = tasksQuery.eq('done', false);
+      } else {
+        // Los demás estados no aplican a tareas: se excluyen cuando ese filtro está activo.
+        tasksQuery = null;
+      }
+    }
+
+    if (params.client_id && tasksQuery) {
+      tasksQuery = tasksQuery.eq('client_id', params.client_id);
+    }
+
+    if (params.project_id && tasksQuery) {
+      // Tareas del proyecto directamente (nuevo campo project_id) o por contenido del proyecto
       const { data: projectContent } = await this.supabase.db
         .from('content_items')
         .select('id')
         .eq('project_id', params.project_id);
 
       const contentIds = (projectContent || []).map((c) => c.id);
+
       if (contentIds.length > 0) {
-        tasksQuery = tasksQuery.in('content_item_id', contentIds);
+        tasksQuery = tasksQuery.or(`project_id.eq.${params.project_id},content_item_id.in.(${contentIds.join(',')})`);
       } else {
-        tasksQuery = tasksQuery.eq('content_item_id', '__none__');
+        tasksQuery = tasksQuery.eq('project_id', params.project_id);
       }
     }
 
-    const { data: tasksData } = await tasksQuery;
+    if (params.assignee_id && tasksQuery) {
+      tasksQuery = tasksQuery.eq('assignee_id', params.assignee_id);
+    }
+
+    const { data: tasksData } = tasksQuery ? await tasksQuery : { data: [] as any[] };
 
     // Fetch project dates if project_id is specified
     let projectDates: { start_date: string | null; end_date: string | null } | null = null;
@@ -315,18 +348,6 @@ export class ContentService {
       }
     }
 
-    // Fetch payments for the month
-    let paymentsQuery = this.supabase.db
-      .from('payments')
-      .select('id, client_id, amount, payment_date, payment_method, status, notes')
-      .eq('workspace_id', workspaceId)
-      .gte('payment_date', monthStart)
-      .lt('payment_date', nextMonthStart);
-
-    if (params.client_id) paymentsQuery = paymentsQuery.eq('client_id', params.client_id);
-
-    const { data: paymentsData } = await paymentsQuery;
-
     // Merge content items and tasks into unified items for calendar display
     const items = [
       ...(contentData || []).map((c) => ({
@@ -335,39 +356,32 @@ export class ContentService {
         platform: c.platform,
         content_type: c.content_type,
         status: c.status,
-        scheduled_date: c.scheduled_date,
+        scheduled_date: c.fecha_final,
         fecha_inicial: c.fecha_inicial,
         fecha_final: c.fecha_final,
+        project_id: c.project_id,
+        client_id: c.client_id,
+        assignee_id: c.assignee_id,
         type: 'content' as const,
       })),
-      ...(tasksData || []).map((t) => ({
+      ...(tasksData || []).map((t: any) => ({
         id: t.id,
-        title: `📋 ${t.title}`,
+        title: t.title,
         platform: 'other',
         content_type: 'other',
         status: t.done ? 'subido' : 'pre_produccion',
-        scheduled_date: t.end_date || t.start_date,
+        scheduled_date: t.end_date,
         fecha_inicial: t.start_date,
         fecha_final: t.end_date,
+        project_id: t.project_id,
+        client_id: t.client_id,
+        assignee_id: t.assignee_id,
+        done: t.done,
         type: 'task' as const,
       })),
     ];
 
-    const payments = (paymentsData || []).map((p) => ({
-      id: p.id,
-      title: `💰 Pago $${p.amount}`,
-      platform: 'other',
-      content_type: 'other',
-      status: 'subido',
-      scheduled_date: p.payment_date,
-      fecha_inicial: null,
-      fecha_final: null,
-      type: 'payment' as const,
-      amount: p.amount,
-      payment_status: p.status || 'pending',
-    }));
-
-    const allItems = [...items, ...payments];
+    const allItems = items;
 
     const countsByDay: Record<string, number> = {};
     for (const item of allItems) {

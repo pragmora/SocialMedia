@@ -36,9 +36,11 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
   it('in create mode, fetching=false, form renders immediately, and clients preload fires', async () => {
     vi.mocked(useParams).mockReturnValue({})
 
-    // Clients preload always fires; content item fetch only in edit mode
-    mockGet.mockResolvedValue({
-      data: [{ id: 'c1', name: 'Client A' }],
+    // Clients preload always fires; content item fetch only in edit mode.
+    // Per-URL mock: /clients returns clients, /projects & /members get [].
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/clients') return Promise.resolve({ data: [{ id: 'c1', name: 'Client A' }] })
+      return Promise.resolve({ data: [] })
     })
 
     renderWithRouter(<ContentForm />)
@@ -55,7 +57,7 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
     expect(mockGet).toHaveBeenCalledWith('/clients')
 
     // Form fields must be visible
-    expect(screen.getByLabelText('Título *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Título')).toBeInTheDocument()
     expect(screen.getByLabelText('Descripción')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Crear elemento' })).toBeInTheDocument()
   })
@@ -63,21 +65,24 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
   it('in edit mode, fetching starts as true, shows Loading..., then pre-fills form fields', async () => {
     vi.mocked(useParams).mockReturnValue({ id: 'content-456' })
 
-    // Mock clients list AND content item data (both API calls in useEffect)
-    mockGet
-      .mockResolvedValueOnce({
-        data: [{ id: 'c1', name: 'Client A' }],
-      })
-      .mockResolvedValueOnce({
-        data: {
-          title: 'Summer Campaign',
-          description: 'A sunny campaign',
-          platform: 'instagram',
-          content_type: 'post',
-          client_id: 'c1',
-          scheduled_date: '2026-06-15',
-        },
-      })
+    // Mock preloads (clients/projects/members) AND content item data by URL,
+    // since the component fires 4 GETs in edit mode (preloads + item fetch)
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/content-items/content-456') {
+        return Promise.resolve({
+          data: {
+            title: 'Summer Campaign',
+            description: 'A sunny campaign',
+            platform: 'instagram',
+            content_type: 'post',
+            client_id: 'c1',
+            scheduled_date: '2026-06-15',
+          },
+        })
+      }
+      if (url === '/clients') return Promise.resolve({ data: [{ id: 'c1', name: 'Client A' }] })
+      return Promise.resolve({ data: [] })
+    })
 
     renderWithRouter(<ContentForm />)
 
@@ -94,7 +99,7 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
     })
 
     // Title field must be pre-filled
-    const titleInput = screen.getByLabelText('Título *') as HTMLInputElement
+    const titleInput = screen.getByLabelText('Título') as HTMLInputElement
     expect(titleInput.value).toBe('Summer Campaign')
 
     // Loading text must be gone
@@ -104,11 +109,17 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
   it('in create mode, clients preload still fires to populate client dropdown', async () => {
     vi.mocked(useParams).mockReturnValue({})
 
-    mockGet.mockResolvedValue({
-      data: [
-        { id: 'c1', name: 'Client One' },
-        { id: 'c2', name: 'Client Two' },
-      ],
+    // Per-URL mock: /clients returns the dropdown options; other preloads get []
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/clients') {
+        return Promise.resolve({
+          data: [
+            { id: 'c1', name: 'Client One' },
+            { id: 'c2', name: 'Client Two' },
+          ],
+        })
+      }
+      return Promise.resolve({ data: [] })
     })
 
     renderWithRouter(<ContentForm />)
@@ -120,19 +131,22 @@ describe('ContentForm — fetching-state behavior preservation (lint hardening)'
 
     expect(screen.getByText('Client Two')).toBeInTheDocument()
 
-    // Verify only /clients was called (no content item fetch)
-    expect(mockGet).toHaveBeenCalledTimes(1)
+    // Verify clients preload fired but NO content item fetch happened (create mode)
     expect(mockGet).toHaveBeenCalledWith('/clients')
+    expect(mockGet).not.toHaveBeenCalledWith(expect.stringContaining('/content-items/'))
   })
 
   it('in edit mode, shows error when content item API returns error', async () => {
     vi.mocked(useParams).mockReturnValue({ id: 'content-err' })
 
-    mockGet
-      .mockResolvedValueOnce({ data: [] }) // clients preload
-      .mockResolvedValueOnce({
-        error: { code: 'not_found', message: 'elemento de contenido no encontrado' },
-      })
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/content-items/content-err') {
+        return Promise.resolve({
+          error: { code: 'not_found', message: 'elemento de contenido no encontrado' },
+        })
+      }
+      return Promise.resolve({ data: [] }) // preloads (clients/projects/members)
+    })
 
     renderWithRouter(<ContentForm />)
 

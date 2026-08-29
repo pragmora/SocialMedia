@@ -1,7 +1,8 @@
 {
   "common": {
     "cancel": "Cancelar",
-    "confirm": "Confirmar"
+    "confirm": "Confirmar",
+    "loading": "Cargando..."
   },
   "app": {
     "title": "SocialFlow",
@@ -10,6 +11,10 @@
     "soon": "pronto",
     "menu": "Menú",
     "close": "Cerrar"
+  },
+  "theme": {
+    "dark": "Modo oscuro",
+    "light": "Modo claro"
   },
   "nav": {
     "dashboard": "Panel",
@@ -24,7 +29,7 @@
     "finances": "Finanzas"
   },
   "auth": {
-    "loginTitle": "Iniciar sesión en SocialFlow",
+    "loginTitle": "Iniciar sesión",
     "loginSubtitle": "Ingresá tus credenciales para acceder a tus espacios de trabajo.",
     "registerTitle": "Creá tu cuenta",
     "registerSubtitle": "Empezá a gestionar tus flujos de contenido con SocialFlow.",
@@ -58,6 +63,15 @@
     "total_other": "Contenido reciente ({{count}} total)",
     "noContent": "Sin contenido aún. Creá tu primer elemento de contenido.",
     "overdueTasks": "Tareas vencidas",
+    "dueSoon": "Próximos a vencer",
+    "dueOverdue": "Vencido",
+    "dueToday": "Vence hoy",
+    "dueTomorrow": "Mañana",
+    "dueDays_one": "En {{count}} día",
+    "dueDays_other": "En {{count}} días",
+    "dueNoItems": "Sin tareas ni contenidos próximos a vencer.",
+    "dueItemTask": "Tarea",
+    "dueItemContent": "Contenido",
     "table": {
       "title": "Título",
       "status": "Estado",
@@ -74,20 +88,37 @@
     "noClients": "Sin clientes aún. Creá tu primer cliente para empezar.",
     "name": "Nombre",
     "notes": "Notas",
+    "phone": "Teléfono",
+    "email": "Correo electrónico",
+    "website": "Sitio web",
+    "phonePlaceholder": "ej. +54 221 555-5555",
+    "emailPlaceholder": "ej. cliente@empresa.com",
+    "websitePlaceholder": "ej. https://empresa.com",
+    "whatsappTitle": "Abrir WhatsApp",
     "active": "Activo",
     "inactive": "Inactivo",
+    "color": "Color",
+    "colorCustom": "Personalizado",
+    "colorNone": "Sin color",
     "saving": "Guardando...",
     "saveChanges": "Guardar cambios",
     "createClient": "Crear cliente",
     "cancel": "Cancelar",
+    "created": "✓ Cliente creado correctamente",
+    "updated": "✓ Cliente actualizado correctamente",
     "namePlaceholder": "ej. Nike",
     "notesPlaceholder": "Notas internas sobre este cliente...",
     "table": {
-      "name": "Nombre",
-      "active": "Activo",
+      "name": "Cliente",
+      "color": "Color",
+      "active": "Estado",
+      "phone": "Teléfono",
+      "email": "Correo",
       "handles": "Perfiles",
+      "workspace": "Espacio",
       "actions": "Acciones"
     },
+    "allWorkspaces": "Todos los espacios",
     "edit": "Editar"
   },
   "content": {
@@ -104,6 +135,8 @@
     "saveChanges": "Guardar cambios",
     "createItem": "Crear elemento",
     "cancel": "Cancelar",
+    "created": "✓ Elemento de contenido creado correctamente",
+    "updated": "✓ Elemento de contenido actualizado correctamente",
     "form": {
       "title": "Título",
       "description": "Descripción",
@@ -117,6 +150,7 @@
       "assignee": "Responsable",
       "noProject": "— Sin proyecto —",
       "allProjects": "Todos los proyectos",
+      "allClients": "Todos los clientes",
       "noClient": "— Sin cliente —",
       "noAssignee": "— Sin asignar —",
       "titlePlaceholder": "ej. Campaña de verano",
@@ -129,6 +163,7 @@
       "scheduled": "Programado",
       "dates": "Fechas",
       "assignee": "Asignado",
+      "project": "Proyecto",
       "actions": "Acciones"
     },
     "edit": "Editar",
@@ -155,8 +190,7 @@
     "noTasks": "Sin tareas vinculadas.",
     "newTask": "Nueva tarea",
     "taskTitle": "Título de la tarea",
-    "addTask": "Agregar tarea",
-    "creatingTask": "Creando...",
+    "addTask": "Agregar tarea",    "creatingTask": "Creando...",
     "taskDone": "Completada",
     "taskPending": "Pendiente"
   },
@@ -181,13 +215,55 @@
     "noContentDay": "Sin contenido programado para este día.",
     "sectionContent": "Contenido",
     "sectionTasks": "Tareas",
-    "sectionPayments": "Pagos",
     "ariaMoveTo": "Mover a {{status}}",
     "detailsAndComments": "Detalles y comentarios →",
     "allProjects": "Todos los proyectos",
+    "allClients": "Todos los clientes",
+    "allAssignees": "Todos los responsables",
+    "addTask": "Tarea",
+    "addContent": "Contenido",
+    "createTaskFor": "Crear tarea para el {{date}}",
+    "createContentFor": "Crear contenido para el {{date}}",
+    "taskDetails": "Ver tarea →",
     "taskDone": "Completada",
     "taskPending": "Pendiente",
-    "payment": "Pago"
+    "payment": "Pago",
+    "edit": "Editar",
+    "viewDetail": "Ver detalle",
+    "labelType": "Tipo",
+    "labelDate": "Fecha",
+    "labelStatus": "Estado",
+    "noDate": "Sin fecha",
+    "startDate": "Fecha de inicio",
+    "endDate": "Fecha de fin",
+    "markDone": "Marcar como completada",
+    "markPending": "Marcar como pendiente",
+    "saving": "Guardando...",
+    "views": {
+      "month": "Mes",
+      "week": "Semana",
+      "year": "Año"
+    },
+    "clearFilters": "Limpiar filtros",
+    "legend": "Clientes",
+    "more": "{{count}} más",
+    "client": "Cliente",
+    "project": "Proyecto",
+    "assignee": "Responsable"
+  },
+  "due": {
+    "title": "Próximos vencimientos",
+    "overdue": "Vencido",
+    "today": "Vence hoy",
+    "tomorrow": "Vence mañana",
+    "soon": "Próximo a vencer",
+    "days_one": "En {{count}} día",
+    "days_other": "En {{count}} días",
+    "empty": "Sin vencimientos próximos",
+    "dueDateLabel": "Vence el {{date}}",
+    "seeCalendar": "Ver calendario",
+    "itemTask": "Tarea",
+    "itemContent": "Contenido"
   },
   "tasks": {
     "title": "Tareas",
@@ -200,6 +276,10 @@
     "saveChanges": "Guardar cambios",
     "createTask": "Crear tarea",
     "cancel": "Cancelar",
+    "created": "✓ Tarea creada correctamente",
+    "updated": "✓ Tarea actualizada correctamente",
+    "completed": "✓ Tarea completada",
+    "uncompleted": "Tarea marcada como pendiente",
     "form": {
       "title": "Título",
       "description": "Descripción",
@@ -212,12 +292,16 @@
       "contentItemPlaceholder": "Elegí un elemento de contenido...",
       "client": "Cliente",
       "clientPlaceholder": "Elegí un cliente...",
+      "project": "Proyecto",
+      "noProject": "— Sin proyecto —",
       "titlePlaceholder": "ej. Revisar borrador para post de IG",
       "descriptionPlaceholder": "Detalles opcionales..."
     },
     "table": {
       "done": "Hecho",
       "title": "Título",
+      "project": "Proyecto",
+      "content": "Contenido",
       "startDate": "Inicio",
       "endDate": "Fin",
       "linked": "Vinculado",
@@ -226,6 +310,9 @@
     "edit": "Editar",
     "delete": "Eliminar",
     "confirmDelete": "¿Estás seguro de que querés eliminar esta tarea?",
+    "backToTasks": "← Volver a tareas",
+    "notFound": "Tarea no encontrada",
+    "overdue": "Vencida",
     "linkedContent": "📝 Contenido",
     "linkedClient": "👤 Cliente"
   },
@@ -234,7 +321,19 @@
     "noWorkspace": "Sin espacio",
     "active": "activo",
     "empty": "Sin espacios de trabajo aún.",
-    "soon": "pronto"
+    "noWorkspaceTitle": "Todavía no tenés un espacio de trabajo",
+    "noWorkspaceSubtitle": "Creá uno propio para empezar a gestionar contenido.",
+    "createName": "Nombre del espacio de trabajo",
+    "createNamePlaceholder": "ej. Mi agencia",
+    "create": "Crear espacio de trabajo",
+    "creating": "Creando...",
+    "noWorkspaceHint": "También podés unirte a un espacio existente usando el link de invitación que te envíe un administrador.",
+    "createTab": "Crear espacio",
+    "joinTab": "Unirme por invitación",
+    "joinInvite": "Link de invitación",
+    "joinInvitePlaceholder": "Pegá el link de invitación aquí",
+    "joining": "Uniendo...",
+    "join": "Unirme"
   },
   "errors": {
     "invalidJson": "JSON inválido",
@@ -304,6 +403,12 @@
     "accessAll": "Acceso total",
     "savePermissions": "Guardar permisos",
     "permissionsSaved": "Permisos guardados",
+    "actions": {
+      "view": "Ver",
+      "create": "Crear",
+      "update": "Editar",
+      "delete": "Eliminar"
+    },
     "table": {
       "user": "Usuario",
       "role": "Rol",
@@ -339,7 +444,12 @@
       "descriptionPlaceholder": "Descripción del proyecto...",
       "workspaces": "Espacios de trabajo",
       "noWorkspaces": "Seleccioná al menos un espacio",
-      "currentWorkspace": "actual"
+      "currentWorkspace": "actual",
+      "logo": "Logo",
+      "logoChange": "Elegir imagen",
+      "logoRemove": "Quitar logo",
+      "logoHint": "JPG, PNG, WebP o SVG · máx. 5 MB",
+      "logoError": "El logo debe ser JPG, PNG, WebP o SVG y pesar hasta 5 MB"
     }
   },
   "role": {
@@ -350,23 +460,35 @@
   },
   "finances": {
     "title": "Finanzas",
+    "newMovement": "+ Movimiento",
     "newPayment": "+ Nuevo pago",
+    "newExpense": "+ Egreso",
     "editPayment": "Editar pago",
+    "new": "Registrar pago",
+    "newExpenseHeading": "Registrar egreso",
     "newPaymentHeading": "Registrar nuevo pago",
     "loadingPayments": "Cargando pagos...",
-    "noPayments": "Sin pagos aún. Registrá tu primer pago para empezar.",
+    "noPayments": "Sin movimientos aún. Registrá tu primer pago o egreso para empezar.",
     "total": "Total",
     "totalAmount": "Total del período",
+    "totalIncome": "Ingresos",
+    "totalExpenses": "Egresos",
     "totalPaid": "Total cobrado",
     "totalPending": "Total pendiente",
+    "balance": "Balance del período",
     "confirmDelete": "¿Estás seguro de que querés eliminar este pago?",
     "saving": "Guardando...",
     "saveChanges": "Guardar cambios",
     "createPayment": "Registrar pago",
+    "createExpense": "Registrar egreso",
     "cancel": "Cancelar",
     "edit": "Editar",
     "delete": "Eliminar",
     "backToList": "← Volver a finanzas",
+    "type": {
+      "income": "Pago",
+      "expense": "Egreso"
+    },
     "status": {
       "paid": "Cobrado",
       "pending": "Pendiente"
@@ -379,6 +501,8 @@
       "paymentMethod": "Método de pago",
       "status": "Estado",
       "notes": "Notas",
+      "project": "Proyecto",
+      "noProject": "— Sin proyecto —",
       "amountPlaceholder": "ej. 15000",
       "notesPlaceholder": "Detalles opcionales del pago..."
     },
@@ -389,17 +513,23 @@
       "otro": "Otro"
     },
     "table": {
+      "type": "Tipo",
       "client": "Cliente",
       "amount": "Monto",
       "date": "Fecha",
       "method": "Método",
+      "project": "Proyecto",
       "status": "Estado",
       "notes": "Notas",
       "actions": "Acciones"
     },
     "filter": {
+      "type": "Tipo",
+      "allTypes": "Todos los tipos",
       "client": "Cliente",
       "allClients": "Todos los clientes",
+      "project": "Proyecto",
+      "allProjects": "Todos los proyectos",
       "startDate": "Desde",
       "endDate": "Hasta"
     }

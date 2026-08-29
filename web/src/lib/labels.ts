@@ -70,3 +70,22 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 export function getPaymentMethodLabel(method: string): string {
   return PAYMENT_METHOD_LABELS[method] ?? method
 }
+
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendiente',
+  paid: 'Cobrado',
+}
+
+/**
+ * Estado de un movimiento financiero resuelto en contexto.
+ *
+ * El valor persistido `paid` es polisémico: significa Cobrado para un
+ * ingreso (is_spent=false) y Pagado para un egreso (is_spent=true).
+ * Los egresos se muestran siempre como Pagado —incluidos los registros
+ * históricos con status='pending'— porque Pagado es el único estado
+ * válido del dominio para un egreso.
+ */
+export function getMovementStatusLabel(status: string, isSpent: boolean): string {
+  if (isSpent) return 'Pagado'
+  return PAYMENT_STATUS_LABELS[status] ?? status
+}

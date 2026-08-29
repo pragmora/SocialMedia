@@ -1,8 +1,9 @@
-import { IsString, IsOptional, IsNumber, IsDateString, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDateString, IsIn, IsBoolean } from 'class-validator';
 
 export class CreatePaymentDto {
   @IsString()
-  client_id: string;
+  @IsOptional()
+  client_id?: string;
 
   @IsNumber()
   amount: number;
@@ -23,11 +24,20 @@ export class CreatePaymentDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  is_spent?: boolean;
+
+  @IsString()
+  @IsOptional()
+  project_id?: string;
 }
 
 export class UpdatePaymentDto {
   @IsString()
-  client_id: string;
+  @IsOptional()
+  client_id?: string;
 
   @IsNumber()
   amount: number;
@@ -48,4 +58,12 @@ export class UpdatePaymentDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  is_spent?: boolean;
+
+  @IsString()
+  @IsOptional()
+  project_id?: string;
 }

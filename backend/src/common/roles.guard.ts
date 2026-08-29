@@ -22,6 +22,11 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
+    // Superadmin global puede operar como admin en cualquier workspace
+    if (request.isSuperadmin) {
+      return true;
+    }
+
     const role = request.membershipRole;
     if (!role || !requiredRoles.includes(role)) {
       throw new ForbiddenException({

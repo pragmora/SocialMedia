@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useLocation } from 'react-router-dom'
 import { renderWithRouter } from '@/test/render'
@@ -25,7 +25,7 @@ import {
 // Helper to set up mockGet to handle both /projects and /calendar calls
 function mockCalendarApi(calendarData: unknown) {
   mockGet.mockImplementation((url: string) => {
-    if (url.startsWith('/projects')) {
+    if (url.startsWith('/projects') || url.startsWith('/clients') || url.startsWith('/members')) {
       return Promise.resolve({ data: [] })
     }
     return Promise.resolve(calendarData)
@@ -147,7 +147,7 @@ describe('Calendar page — behavior preservation (lint hardening)', () => {
     renderWithRouter(<Calendar />)
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledTimes(2)
+      expect(mockGet).toHaveBeenCalledTimes(4)
     })
 
     const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
@@ -548,6 +548,42 @@ describe('Calendar — status tabs and platform select (task 3.2)', () => {
     const callArg = mockGet.mock.calls[0][0] as string
     expect(callArg).toContain('platform=instagram')
   })
+
+  it('selecting an assigned member triggers API call with ?assignee_id= param', async () => {
+    mockGet.mockImplementation((url: string) => {
+      if (url.startsWith('/projects') || url.startsWith('/clients')) return Promise.resolve({ data: [] })
+      if (url.startsWith('/members')) {
+        return Promise.resolve({ data: [{ user_id: 'u-1', user: { id: 'u-1', email: 'ana@x.com', name: 'Ana' } }] })
+      }
+      return Promise.resolve({ data: { items: [], counts_by_day: {} } })
+    })
+
+    const user = userEvent.setup()
+    renderWithRouter(<Calendar />)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
+    })
+
+    vi.clearAllMocks()
+    mockGet.mockImplementation((url: string) => {
+      if (url.startsWith('/projects') || url.startsWith('/clients')) return Promise.resolve({ data: [] })
+      if (url.startsWith('/members')) {
+        return Promise.resolve({ data: [{ user_id: 'u-1', user: { id: 'u-1', email: 'ana@x.com', name: 'Ana' } }] })
+      }
+      return Promise.resolve({ data: { items: [], counts_by_day: {} } })
+    })
+
+    const assigneeSelect = screen.getAllByRole('combobox')[3]
+    await user.selectOptions(assigneeSelect, 'u-1')
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledTimes(1)
+    })
+
+    const callArg = mockGet.mock.calls[0][0] as string
+    expect(callArg).toContain('assignee_id=u-1')
+  })
 })
 
 describe('Calendar — API query includes combined params (task 3.3)', () => {
@@ -565,7 +601,7 @@ describe('Calendar — API query includes combined params (task 3.3)', () => {
     })
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledTimes(2)
+      expect(mockGet).toHaveBeenCalledTimes(4)
     })
 
     const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
@@ -585,7 +621,7 @@ describe('Calendar — API query includes combined params (task 3.3)', () => {
     })
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledTimes(2)
+      expect(mockGet).toHaveBeenCalledTimes(4)
     })
 
     const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
@@ -655,14 +691,16 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
     await user.click(day15)
 
     await waitFor(() => {
-      expect(screen.getByText('Facebook Launch Post')).toBeInTheDocument()
+      const sidebar = within(screen.getByTestId('calendar-sidebar'))
+      expect(sidebar.getByText('Facebook Launch Post')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Instagram Reel')).toBeInTheDocument()
-    expect(screen.getAllByText('En Edición').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Pre Producción').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Facebook').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Instagram').length).toBeGreaterThanOrEqual(1)
+    const sidebar = within(screen.getByTestId('calendar-sidebar'))
+    expect(sidebar.getByText('Instagram Reel')).toBeInTheDocument()
+    expect(sidebar.getAllByText('En Edición').length).toBeGreaterThanOrEqual(1)
+    expect(sidebar.getAllByText('Pre Producción').length).toBeGreaterThanOrEqual(1)
+    expect(sidebar.getAllByText('Facebook').length).toBeGreaterThanOrEqual(1)
+    expect(sidebar.getAllByText('Instagram').length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows "No content scheduled for this day." for empty date', async () => {
@@ -729,7 +767,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
     await user.click(screen.getByText('15'))
 
     await waitFor(() => {
-      expect(screen.getByText('May Item')).toBeInTheDocument()
+      expect(within(screen.getByTestId('calendar-sidebar')).getByText('May Item')).toBeInTheDocument()
     })
 
     // Navigate to previous month
@@ -779,7 +817,7 @@ describe('Calendar — always-visible sidebar (task 3.4)', () => {
     await user.click(screen.getByText('15'))
 
     await waitFor(() => {
-      expect(screen.getByText('S6 Highlight Item')).toBeInTheDocument()
+      expect(within(screen.getByTestId('calendar-sidebar')).getByText('S6 Highlight Item')).toBeInTheDocument()
     })
 
     // Navigate to Previous month (April)
@@ -920,7 +958,7 @@ describe('Calendar — URL params survive refresh (task 3.6)', () => {
     })
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledTimes(2)
+      expect(mockGet).toHaveBeenCalledTimes(4)
     })
 
     const calendarCalls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
@@ -984,7 +1022,7 @@ describe('Calendar — URL params survive refresh (task 3.6)', () => {
     await user.click(screen.getByText('15'))
 
     await waitFor(() => {
-      expect(screen.getByText('Smoke Test Item')).toBeInTheDocument()
+      expect(within(screen.getByTestId('calendar-sidebar')).getByText('Smoke Test Item')).toBeInTheDocument()
     })
   })
 })
@@ -1192,7 +1230,7 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
   })
 
   // S4.1 — "Details & Comments" link
-  it('renders a "Details & Comments" link navigating to content item detail', async () => {
+  it('renders a "Ver detalle" action navigating to content item detail', async () => {
     mockCalendarApi({
       data: mockMonthData([
         { id: 'ci-1', title: 'Link Item', platform: 'instagram', content_type: 'post', status: 'pre_produccion', scheduled_date: dateStr },
@@ -1207,10 +1245,10 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
       expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
     })
 
-    // "Details & Comments" link must exist and point to content item detail
-    const detailsLink = screen.getByText(/Detalles y comentarios/)
+    // "Ver detalle" link must exist and point to content item detail
+    const detailsLink = screen.getByText(/Ver detalle/i)
     expect(detailsLink).toBeInTheDocument()
-    expect(detailsLink.closest('a')).toHaveAttribute('href', '/dashboard/content-items/ci-1')
+    expect(detailsLink.closest('a')?.getAttribute('href')).toContain('/dashboard/content-items/ci-1')
   })
 
   // S5.2 — Keyboard Enter activation
@@ -1289,8 +1327,8 @@ describe('Calendar — sidebar workflow actions (transition buttons)', () => {
     })
 
     // Title should be rendered as a link
-    const titleLink = screen.getByText('Title Link Item').closest('a')
-    expect(titleLink).toHaveAttribute('href', '/dashboard/content-items/ci-1')
+    const titleLink = within(screen.getByTestId('calendar-sidebar')).getByText('Title Link Item').closest('a')
+    expect(titleLink?.getAttribute('href')).toContain('/dashboard/content-items/ci-1')
   })
 })
 
@@ -1337,8 +1375,8 @@ describe('Calendar page — null-safe rendering (regression)', () => {
     expect(screen.getByText(/Seleccioná un día/)).toBeInTheDocument()
   })
 
-  it('shows content count indicators when API returns populated items and counts', async () => {
-    // Regression: day cells with content must show count badges
+  it('shows content titles inside day cells when API returns items', async () => {
+    // Day cells must render item titles (not just count badges)
     const today = new Date()
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
@@ -1367,9 +1405,132 @@ describe('Calendar page — null-safe rendering (regression)', () => {
     // Grid headers render
     expect(screen.getByText('Dom')).toBeInTheDocument()
 
-    // Because today's day cell has count:1, two "1" texts should exist:
-    // one for the day number and one for the count badge inside the same cell
-    const allOnes = screen.getAllByText('1')
-    expect(allOnes.length).toBeGreaterThanOrEqual(2)
+    // The item title must be visible inside its day cell
+    const cell = screen.getByTestId(`day-cell-${todayStr}`)
+    expect(cell).toHaveTextContent('Test Post')
+  })
+})
+
+describe('Calendar — views, clear filters and legend (new features)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('switches from month to week view and fetches by year', async () => {
+    mockCalendarApi({ data: { items: [], counts_by_day: {} } })
+
+    renderWithRouter(<Calendar />, {
+      initialEntries: [{ pathname: '/', search: '?month=2026-05' }],
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
+    })
+
+    // View switcher renders all three options
+    expect(screen.getByRole('button', { name: 'Mes' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Semana' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Año' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Semana' }))
+
+    // Week view fetches the whole year (year=YYYY instead of month=)
+    await waitFor(() => {
+      const calls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
+      const last = calls[calls.length - 1][0] as string
+      expect(last).toContain('year=')
+      expect(last).not.toContain('month=')
+    })
+
+    // 7 day columns for the current week (starting Monday)
+    const today = new Date()
+    const mondayOffset = (today.getDay() + 6) % 7
+    const monday = new Date(today)
+    monday.setDate(today.getDate() - mondayOffset)
+    const mondayStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
+    expect(screen.getByTestId(`day-cell-${mondayStr}`)).toBeInTheDocument()
+  })
+
+  it('clears all active filters with the Limpiar filtros button', async () => {
+    mockCalendarApi({ data: { items: [], counts_by_day: {} } })
+
+    renderWithRouter(<Calendar />, {
+      initialEntries: [{ pathname: '/', search: '?month=2026-05&status=subido&platform=instagram' }],
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
+    })
+
+    // Active filters row is visible (clear button only renders when filters active)
+    expect(screen.getByRole('button', { name: 'Limpiar filtros' })).toBeInTheDocument()
+
+    vi.clearAllMocks()
+    mockCalendarApi({ data: { items: [], counts_by_day: {} } })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }))
+
+    // Only the month param is kept in the refetch
+    await waitFor(() => {
+      const calls = mockGet.mock.calls.filter((c) => (c[0] as string).startsWith('/calendar'))
+      const last = calls[calls.length - 1][0] as string
+      expect(last).toContain('month=2026-05')
+      expect(last).not.toContain('status=')
+      expect(last).not.toContain('platform=')
+    })
+
+    // Active-filters row is gone
+    expect(screen.queryByRole('button', { name: 'Limpiar filtros' })).not.toBeInTheDocument()
+  })
+
+  it('renders the client legend with resolved colors', async () => {
+    mockGet.mockImplementation((url: string) => {
+      if (url.startsWith('/projects') || url.startsWith('/members')) return Promise.resolve({ data: [] })
+      if (url.startsWith('/clients')) {
+        return Promise.resolve({
+          data: [
+            { id: 'c1', name: 'Nike', color: '#EA580C', active: true },
+            { id: 'c2', name: 'Ferrari', color: null, active: true },
+          ],
+        })
+      }
+      return Promise.resolve({ data: { items: [], counts_by_day: {} } })
+    })
+
+    renderWithRouter(<Calendar />, {
+      initialEntries: [{ pathname: '/', search: '?month=2026-05' }],
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
+    })
+
+    const legend = screen.getByTestId('calendar-legend')
+    expect(within(legend).getByText('Nike')).toBeInTheDocument()
+    expect(within(legend).getByText('Ferrari')).toBeInTheDocument()
+  })
+
+  it('never renders payment items even if the API returns them', async () => {
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+    mockCalendarApi({
+      data: {
+        items: [
+          { id: 'pay-1', title: '💰 Pago $100', platform: 'other', content_type: 'other', status: 'subido', scheduled_date: todayStr, type: 'payment', amount: 100 },
+        ],
+        counts_by_day: { [todayStr]: 1 },
+      },
+    })
+
+    renderWithRouter(<Calendar />)
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading calendar...')).not.toBeInTheDocument()
+    })
+
+    const cell = screen.getByTestId(`day-cell-${todayStr}`)
+    expect(cell).not.toHaveTextContent('Pago')
+    expect(screen.queryByText(/Pago/)).not.toBeInTheDocument()
   })
 })

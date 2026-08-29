@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderWithRouter } from '@/test/render'
 
 // Mock apiClient BEFORE importing ClientForm
@@ -49,7 +50,7 @@ describe('ClientForm — fetching-state behavior preservation (lint hardening)',
     expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
 
     // Form fields should be visible
-    expect(screen.getByLabelText('Nombre *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByLabelText('Notas')).toBeInTheDocument()
 
     // Submit button should show create label
@@ -77,7 +78,7 @@ describe('ClientForm — fetching-state behavior preservation (lint hardening)',
     })
 
     // Form fields must be pre-filled with API data
-    const nameInput = screen.getByLabelText('Nombre *') as HTMLInputElement
+    const nameInput = screen.getByLabelText('Nombre') as HTMLInputElement
     expect(nameInput.value).toBe('Acme Corp')
 
     // Loading text must disappear after data resolves
@@ -116,5 +117,66 @@ describe('ClientForm — fetching-state behavior preservation (lint hardening)',
     })
 
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeInTheDocument()
+  })
+
+  it('create mode starts with no color selected and allows picking a palette color', async () => {
+    vi.mocked(useParams).mockReturnValue({})
+
+    renderWithRouter(<ClientForm />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Nuevo cliente')).toBeInTheDocument()
+    })
+
+    // Default: "Sin color" is selected (nothing pre-assigned from DB)
+    const noneButton = screen.getByRole('button', { name: 'Sin color' })
+    expect(noneButton).toHaveClass('ring-2')
+
+    // Clicking a palette swatch selects it
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: '#4F46E5' }))
+
+    mockPost.mockResolvedValue({ data: { id: 'c1' } })
+    await user.type(screen.getByLabelText('Nombre'), 'Nike')
+    await user.click(screen.getByRole('button', { name: 'Crear cliente' }))
+
+    await waitFor(() => {
+      expect(mockPost).toHaveBeenCalledWith('/clients', expect.objectContaining({ color: '#4F46E5' }))
+    })
+  })
+
+  it('keeps no color when the user does not pick one', async () => {
+    vi.mocked(useParams).mockReturnValue({})
+
+    renderWithRouter(<ClientForm />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Nuevo cliente')).toBeInTheDocument()
+    })
+
+    const user = userEvent.setup()
+    mockPost.mockResolvedValue({ data: { id: 'c2' } })
+    await user.type(screen.getByLabelText('Nombre'), 'Ferrari')
+    await user.click(screen.getByRole('button', { name: 'Crear cliente' }))
+
+    await waitFor(() => {
+      expect(mockPost).toHaveBeenCalledWith('/clients', expect.objectContaining({ color: null }))
+    })
+  })
+
+  it('edit mode with a client without color keeps "Sin color" selected', async () => {
+    vi.mocked(useParams).mockReturnValue({ id: 'client-nocolor' })
+
+    mockGet.mockResolvedValue({
+      data: { name: 'Sin Color SA', notes: '', active: true, color: null },
+    })
+
+    renderWithRouter(<ClientForm />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Editar cliente')).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: 'Sin color' })).toHaveClass('ring-2')
   })
 })

@@ -63,23 +63,30 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const user = req.user;
+    const isSuperadmin = !!req.isSuperadmin;
 
-    const { data: membership } = await this.supabase.db
-      .from('memberships')
-      .select('role')
-      .eq('workspace_id', dto.workspace_id)
-      .eq('user_id', user.sub)
-      .single();
+    // El superadmin puede entrar a cualquier workspace y operar como admin,
+    // aunque no tenga membresía explícita en él.
+    let role = 'admin';
+    if (!isSuperadmin) {
+      const { data: membership } = await this.supabase.db
+        .from('memberships')
+        .select('role')
+        .eq('workspace_id', dto.workspace_id)
+        .eq('user_id', user.sub)
+        .single();
 
-    if (!membership) {
-      return { error: 'espacio de trabajo no encontrado o sin membresia' };
+      if (!membership) {
+        return { error: 'espacio de trabajo no encontrado o sin membresia' };
+      }
+      role = membership.role;
     }
 
     const payload = {
       sub: user.sub,
       email: user.email,
       wid: dto.workspace_id,
-      rol: membership.role,
+      rol: role,
     };
     const hours = parseInt(process.env.JWT_EXPIRY_HOURS || '72', 10);
     const token = this.jwtService.sign(payload, {
@@ -89,7 +96,7 @@ export class AuthController {
     this.setCookie(res, token);
     return {
       active_workspace_id: dto.workspace_id,
-      role: membership.role,
+      role,
     };
   }
 
