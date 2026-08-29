@@ -5,6 +5,9 @@ import apiClient from '@/lib/apiClient'
 import { useMe } from '@/context/MeContext'
 import ThemeToggle from '@/components/ThemeToggle'
 
+const LOGO_PATH = import.meta.env.VITE_LOGO_PATH || '/pragmora_solutions_vector.svg'
+const LOGO_ALT = import.meta.env.VITE_LOGO_ALT || 'SocialFlow'
+
 export default function Login() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -59,8 +62,8 @@ export default function Login() {
       <div className="w-full max-w-sm animate-fade-in">
         <div className="text-center mb-8">
           <img
-            src="/pragmora_solutions_vector.svg"
-            alt="SocialFlow"
+            src={LOGO_PATH}
+            alt={LOGO_ALT}
             className="w-16 h-16 rounded-xl mx-auto mb-4 shadow-lg shadow-socialflow-600/20"
           />
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t('auth.loginTitle')}</h1>
